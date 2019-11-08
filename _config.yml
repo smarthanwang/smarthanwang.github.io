@@ -4,9 +4,9 @@
 
 # Site
 title: Smarthan's Notebook
-subtitle:
-description: keep learning, keep coding
-keywords:
+subtitle: 记录学习，记录生活
+description: keep coding, keep learning
+keywords: big-data hadoop hdfs yarn mapreduce
 author: smarthan
 language: zh-CN
 timezone:
