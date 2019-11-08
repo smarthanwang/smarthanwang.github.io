@@ -2,7 +2,7 @@
 <search>
   <entry>
     <title>Yarn 使用 Cgroup 实现任务资源限制</title>
-    <url>/2019/10/30/yarn_cgroup_usage/</url>
+    <url>/2019/10/20/yarn-cgroup-usage/</url>
     <content><![CDATA[<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>Linux CGroup 全称是 Linux Control Group，是 Linux 内核提供的一个用来限制进程资源使用的功能，支持如 CPU, 内存，磁盘 IO 等资源的使用限制。用户可以使用 CGroup 对单个进程或者一组进程进行精细化的资源限制，具体使用方式可以查看参考文档。</p><p>目前， Yarn NodeManager 能够使用 CGroup 来限制所有 containers 的资源使用，主要是 CPU 资源。如果不用 CGroup， 在 NM 端很难实现对 container 的 CPU 使用进行限制。默认状态下， container 的 CPU 使用是没有限制的，container 申请了 1 vcore ，实际上能够使用所有的 CPU 资源。所以如果 NM 上分配了一个 vcore 申请较少实际上 CPU 使用极高的任务，常常会导致节点上运行的所有的任务都延时。</p><a id="more"></a>
 
 <p>NM 运行时，可以通过 ContainersMonitor 线程监控 container 内存和 CPU 使用。对于 container 内存使用， 一旦发现其超出申请内存大小，就会立即发起 kill container 命令，回收 container 的资源。ContainersMonitor 虽然也支持 CPU 使用监控，但是 CPU 资源不像内存资源，其使用量的峰值是基本上可以确定的，在所有机器或者系统上都基本一致。 CPU 受限于 CPU 硬件性能， 同一个任务在不同的机器上的 CPU 使用率可能差异巨大，所以不能发现 container CPU 使用超过申请大小就 kill container 。同时，由于 container 都是由子进程的方式启动的， NM 也是很难通过直接控制 container 运行和暂停来调整其 CPU 使用率。 因此，在没有 CGroup 功能的情况下， NM 是很难直接限制 container 的 CPU 使用的。</p>
@@ -40,12 +40,79 @@
       <tags>
         <tag>Yarn</tag>
         <tag>Cgroup</tag>
+        <tag>资源限制</tag>
       </tags>
   </entry>
   <entry>
-    <title>Hello World</title>
-    <url>/2019/10/29/hello-world/</url>
-    <content><![CDATA[<p>哈哈，懒了这么久，终于还是下定决心开始写博客了。</p>
+    <title>Yarn ContainerExecutor 配置与使用</title>
+    <url>/2019/10/12/yarn-container-executor/</url>
+    <content><![CDATA[<p>在 Yarn 的架构中，将集群中的计算资源，主要是内存和 CPU ，封装抽象出了 Container 的概念， 类似于 <code>container_001 &lt;memory:2048, vCores:1&gt;</code>。 Container 由 ResourceManager 负责调度与分配，由资源所在的 NodeManager 负责启动与管理。</p><a id="more"></a>
+<p>Container 所封装的计算资源是由集群中的 NodeManager 提供的，所以 Container 的启动，运行，监控， 管理也需要对应的 NodeManager 来执行。 ContainerExecutor 正是 NodeManager 用来启动与管理 Container 的工具。</p>
+<p>Yarn 3.0 版本中，在 Linux 系统环境下，ContainerExecutor 有两种实现：</p>
+<ul>
+<li>DefaultContainerExecutor:   简称 DCE ,如其名，是默认的 ContainerExecutor 实现。 如果用户未指定 ContainerExecutor 的具体实现，NM 就会使用它。 DCE 直接使用 bash 来启动 container 进程，所有 container 都使用 NM 进程用户 (yarn) 启动。</li>
+</ul>
+<ul>
+<li>LinuxContainerExecutor:   简称 LCE，相比于 DCE ，它能提供更多有用的功能，如用户权限隔离，支持使用提交任务用户来启动 container；支持使用 cgroup 进行资源限制； 支持运行 docker container (合并了 2.x 版本中的 DockerContainerExecutor)。 LCE 使用可执行的二进制文件 container-executor 来启动 container 进程，container 的用户根据配置可以统一使用默认用户，也可以使用提交任务的用户（需要提前在 NM 上添加所有支持的用户）。</li>
+</ul>
+<p>在默认的情况下，如果我们的集群是 non-secure ，而且没有什么特殊需求时，使用 DCE 就足够了，因为 DCE 配置和使用都很简单。但是当我们的集群要求安全性，想要支持 container 用户权限隔离，或者严格限制 container 的资源使用，再或者支持 docker container，我们就需要使用 LCE。</p>
+<h2 id="配置"><a href="#配置" class="headerlink" title="配置"></a>配置</h2><p>NM 具体使用哪种 ContainerExecutor 的实现由 yarn-site.xml 里的 <code>yarn.nodemanager.container-executor.class</code> 属性来配置。</p>
+<h3 id="DefaultContainerExecutor"><a href="#DefaultContainerExecutor" class="headerlink" title="DefaultContainerExecutor"></a>DefaultContainerExecutor</h3><p>DCE 的配置比较简单，只需要在 yarn-site.xml 指定 <code>yarn.nodemanager.container-executor.class</code> 属性为 <code>org.apache.hadoop.yarn.server.nodemanager.DefaultContainerExecutor</code> 即可，不需要额外的配置。</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.nodemanager.container-executor.class<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>org.apache.hadoop.yarn.server.nodemanager.DefaultContainerExecutor<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="LinuxContainerExecutor"><a href="#LinuxContainerExecutor" class="headerlink" title="LinuxContainerExecutor"></a>LinuxContainerExecutor</h3><p>LCE 配置相对更加复杂一些， 具体如下：</p>
+<p><strong>1. yarn-site.xml 配置</strong></p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- NM 的 Unix 用户组，需要跟 container-executor.cfg 里面的配置一致，主要用来验证是否有安全访问 container-executor 二进制的权限 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.nodemanager.linux-container-executor.group<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>hadoop<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- 是否限制 container 的启动用户，true：container 使用统一的用户启动 false: container 使用任务用户启动 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.nodemanager.linux-container-executor.nonsecure-mode.limit-users<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- 限制 container 启动用户时，统一使用的用户，如果不设置，默认为 nobody --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.nodemanager.linux-container-executor.nonsecure-mode.local-user<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>yarn<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>2. container-executor.cfg 配置</strong></p>
+<p>container-executor.cfg 是 container-executor 二进制程序的配置文件，会在其启动时读取校验。<br>具体的属性如下：</p>
+<ul>
+<li>yarn.nodemanager.linux-container-executor.group: NM 的 Unix 用户组， 需要与 yarn-site.xml 里一致。</li>
+<li>allowed.system.users: 允许使用的系统用户，多个用户使用 ‘,’ 分隔，可以不设置，即允许所有用户。</li>
+<li>banned.users: 禁止使用的用户，多个用户使用 ‘,’ 分隔。</li>
+<li>min.user.id: 允许使用的用户的 uid 最小值，防止有其他超级用户。</li>
+</ul>
+<p>配置样例如下：</p>
+<figure class="highlight properties"><table><tr><td class="code"><pre><span class="line"><span class="meta">yarn.nodemanager.linux-container-executor.group</span>=<span class="string">hadoop</span></span><br><span class="line"><span class="meta">allowed.system.users</span>=<span class="string">hdfs,yarn,mapred,</span></span><br><span class="line"><span class="meta">banned.users</span>=<span class="string">root,bin</span></span><br><span class="line"><span class="meta">min.user.id</span>=<span class="string">100</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="启用"><a href="#启用" class="headerlink" title="启用"></a>启用</h2><p>DCE 的启用不需要额外的操作，配置完成后直接重启 NM 即可。LCE 的启用则还需要一系列的准备工作。</p>
+<p><strong>1. 设置 container-executor 权限</strong>    </p>
+<p>container-executor 二进制的 owner 必须是 root，属组必须与 NM 属组相同 (hadoop)，同时，它的权限必须设置成为 6050，以赋予它 setuid 的权限，来实现使用不同的用户来启动 container。</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">chown root:hadoop /usr/lib/hadoop-yarn/bin/container-executor </span><br><span class="line">chmod 6050 /usr/lib/hadoop-yarn/bin/container-executor</span><br></pre></td></tr></table></figure>
+
+<p><strong>2. 设置 container-executor.cfg 权限</strong>    </p>
+<p>container-executor.cfg 二进制的 owner 必须是 root，属组必须与 NM 属组相同 (hadoop)，同时，它的权限必须设置成为 0400， 以保证它是只读不可写的</p>
+<figure class="highlight sh"><table><tr><td class="code"><pre><span class="line">chown root:hadoop /etc/hadoop/conf/container-executor.cfg</span><br><span class="line">chmode 0400 /etc/hadoop/conf/container-executor.cfg</span><br></pre></td></tr></table></figure>
+
+<p><strong>3. 设置 yarn-local 和 yarn-log dirs 权限</strong>    </p>
+<p>所有配置的 yarn-local 和 yarn-log 目录属主必须是 yarn:hadoop ，这个一般集群搭建时已经修改好了，不需要再处理。</p>
+<p><strong>4. 任务用户管理</strong>    </p>
+<p>如果 <code>yarn.nodemanager.linux-container-executor.nonsecure-mode.limit-users</code> 设置的为 false，即使用提交任务用户来运行 container，则需要在集群所有的 NM 节点上将需要的用户通过 useradd 命令，逐个添加到机器上，否则任务运行时会因为找不到指定用户而失败。当集群规模比较大，用户很多时，添加用户还是比较繁琐的，建议统一使用 yarn 用户来启动 container。参考上面的 LCE 配置即可。</p>
+<p>当上述的操作都完成后，重启 NM ， LCE 就会被启用。</p>
+<h2 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h2><p>container-executor 和 container-executor.cfg 文件的权限一定要按照要求修改，否则 NM 会启动失败。如果改了权限后，NM 还是报权限问题，还需要将文件所在的目录用户组也改成 root:hadoop，权限改成 755。</p>
+<h2 id="参考文档"><a href="#参考文档" class="headerlink" title="参考文档"></a>参考文档</h2><ul>
+<li><a href="https://www.ibm.com/support/knowledgecenter/en/SSPT3X_4.2.0/com.ibm.swg.im.infosphere.biginsights.install.doc/doc/inst_adv_yarn_config.html" target="_blank" rel="noopener">Configuring YARN container executor</a></li>
+<li><a href="https://hadoop.apache.org/docs/r3.2.0/hadoop-yarn/hadoop-yarn-site/SecureContainer.html" target="_blank" rel="noopener">YARN Secure Containers</a></li>
+<li><a href="https://makeling.github.io/bigdata/dcb921f7.html" target="_blank" rel="noopener">理解和配置LinuxContainerExecutor
+</a></li>
+</ul>
+]]></content>
+      <categories>
+        <category>Hadoop-YARN</category>
+      </categories>
+      <tags>
+        <tag>Yarn</tag>
+        <tag>ContainerExecutor</tag>
+        <tag>LinuxContainerExecutor</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>写在最开始的话</title>
+    <url>/2019/10/08/hello-world/</url>
+    <content><![CDATA[<p>懒了这么久，终于还是下定决心开始写博客了。</p>
+<p>博客的内容主要就是总结一下日常工作和学习中遇到的知识点和经验，将自己的技能点记录沉淀下来，也能更好的鞭策自己不断前行。</p>
+<p>九层之台，起于累土，千里之行，始于足下。希望自己能坚持下来。</p>
+<p>Keep coding, keep learning.</p>
 ]]></content>
       <categories>
         <category>其他</category>
