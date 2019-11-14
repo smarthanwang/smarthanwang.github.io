@@ -14,7 +14,7 @@ categories:
 因此，将实际生产环境中 HDFS 集群出现的问题进行总结是有必要的。在本文中，我会把我在集群运维过程遇到的一些有代表性的问题进行总结，包括异常信息，产生原因以及解决办法，以便为后续的运维工作提供一个快速参照，也希望能给大家带来一定的参考。
 
 
-## 1.文件未正常关闭
+## 文件未正常关闭
 
 ### 异常信息
 
@@ -49,7 +49,7 @@ hdfs fsck -Dfs.defaultFS=hdfs://nameservice:8020/ path -openforwrite
 hdfs debug recoverLease -path openfile -retries 3
 ```
 
-## 2. 安全集群 (kerberos) 无法访问非安全集群
+## 安全集群 (kerberos) 无法访问非安全集群
 
 ### 异常信息
 
@@ -92,7 +92,7 @@ ls: Failed on local exception: java.io.IOException: Server asks us to fall back 
   </property>  
 ```
 
-## 3.datanode 域名无法解析
+## datanode 域名无法解析
 
 ### 异常信息
 
@@ -120,7 +120,7 @@ java.nio.channels.UnresolvedAddressException
 第二种方式是将客户端禁止默认使用域名进行连接，这样客户端就会默认使用节点 ip 进行连接，也就跳过了域名解析的问题。客户端只需要在配置 `dfs.client.use.datanode.hostname=false` 即可，且不需要频繁更改，所以推荐使用这种解决方式。
 
 
-## 4.datanode 注册失败，机架信息异常
+## datanode 注册失败，机架信息异常
 
 ### 异常信息
 
@@ -138,8 +138,7 @@ org.apache.hadoop.net.NetworkTopology$InvalidTopologyException: Failed to add /J
 DN 端 异常：
 
 ```java
-org.apache.hadoop.ipc.RemoteException(org.apache.hadoop.net.NetworkTopology$InvalidTopologyException): Failed to add /J/HD-1164/10.140.83.70:50010: You cannot have a rack and a non-rack node at the same leve
-l of the network topology.
+org.apache.hadoop.ipc.RemoteException(org.apache.hadoop.net.NetworkTopology$InvalidTopologyException): Failed to add /J/HD-1164/10.140.83.70:50010: You cannot have a rack and a non-rack node at the same level of the network topology.
         at org.apache.hadoop.net.NetworkTopology.add(NetworkTopology.java:415)
         at org.apache.hadoop.hdfs.server.blockmanagement.DatanodeManager.registerDatanode(DatanodeManager.java:980)
         at org.apache.hadoop.hdfs.server.namenode.FSNamesystem.registerDatanode(FSNamesystem.java:5218)
