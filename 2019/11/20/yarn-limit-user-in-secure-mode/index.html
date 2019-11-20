@@ -56,16 +56,17 @@
   };
 </script>
 
-  <meta name="description" content="keep coding, keep learning">
-<meta name="keywords" content="big-data hadoop hdfs yarn mapreduce">
-<meta property="og:type" content="website">
-<meta property="og:title" content="Smarthan&#39;s Notebook">
-<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;categories&#x2F;Hadoop-YARN&#x2F;index.html">
+  <meta name="description" content="在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最开始的 simple 模式的验证方式已经无法满足需求了，因此，我们决定使用 kerberos 开启集群的安全验证: Run Hadoop in Secure Mode。在实践中过程中，我们发现在 Secure Mode 时，NM 必须使用 LinuxContainerExecutor，如果使用">
+<meta name="keywords" content="Yarn,LinuxContainerExecutor,Security">
+<meta property="og:type" content="article">
+<meta property="og:title" content="YARN 在 security 集群中使用统一用户运行 Container">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;11&#x2F;20&#x2F;yarn-limit-user-in-secure-mode&#x2F;index.html">
 <meta property="og:site_name" content="Smarthan&#39;s Notebook">
-<meta property="og:description" content="keep coding, keep learning">
+<meta property="og:description" content="在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最开始的 simple 模式的验证方式已经无法满足需求了，因此，我们决定使用 kerberos 开启集群的安全验证: Run Hadoop in Secure Mode。在实践中过程中，我们发现在 Secure Mode 时，NM 必须使用 LinuxContainerExecutor，如果使用">
 <meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-11-20T11:52:08.462Z">
 <meta name="twitter:card" content="summary">
-  <link rel="canonical" href="http://yoursite.com/categories/Hadoop-YARN/">
+  <link rel="canonical" href="http://yoursite.com/2019/11/20/yarn-limit-user-in-secure-mode/">
 
 
 <script id="page-configurations">
@@ -73,13 +74,13 @@
   CONFIG.page = {
     sidebar: "",
     isHome: false,
-    isPost: false,
+    isPost: true,
     isPage: false,
     isArchive: false
   };
 </script>
 
-  <title>分类: Hadoop-YARN | Smarthan's Notebook</title>
+  <title>YARN 在 security 集群中使用统一用户运行 Container | Smarthan's Notebook</title>
   
 
 
@@ -246,137 +247,158 @@
         <div class="content-wrap">
             
 
-  
-    
-    
-  
-    
-    
-  
-    
-    
-  
-    
-    
-  
-  
-
           <div class="content">
             
 
+  <div class="posts-expand">
+      
   
   
-  
-  <div class="post-block">
-    <div class="posts-collapse">
-      <div class="collection-title">
-        <h1 class="collection-header">Hadoop-YARN
-          <small>分类</small>
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/11/20/yarn-limit-user-in-secure-mode/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="smarthan">
+      <meta itemprop="description" content="keep coding, keep learning">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Smarthan's Notebook">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          
+            YARN 在 security 集群中使用统一用户运行 Container
+            
+
+          
         </h1>
-      </div>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              
+                
+              
+
+              <time title="创建时间：2019-11-20 19:52:08" itemprop="dateCreated datePublished" datetime="2019-11-20T19:52:08+08:00">2019-11-20</time>
+            </span>
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Hadoop-YARN/" itemprop="url" rel="index">
+                    <span itemprop="name">Hadoop-YARN</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+          
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">本文字数：</span>
+              
+              <span>446</span>
+            </span>
+          
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              
+              <span>1 分钟</span>
+            </span>
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
 
       
+        <p>在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最开始的 simple 模式的验证方式已经无法满足需求了，因此，我们决定使用 kerberos 开启集群的安全验证: Run Hadoop in Secure Mode。</p><p>在实践中过程中，我们发现在 Secure Mode 时，NM 必须使用 LinuxContainerExecutor，如果使用 DefaultContainerExecutor 的话，MR 任务会在 reduce shuffle 阶段失败退出，参见<a href="https://issues.apache.org/jira/browse/YARN-1432" target="_blank" rel="noopener">YARN-1432</a>。同时，LCE 会使用任务提交用户 JobUser 来运行 Container，如果 NM 上不存在 JobUser，任务就会失败退出。 Hadoop 这样做的逻辑是为了实现用户权限隔离，保证用户任务和数据的安全，但是在实践中过程中，由于我们集群中用户过多，在 NM 上逐一添加用户过于繁琐，而且后续维护起来比较麻烦，因此，我们决定修改这块的代码逻辑，在 Secure Mode 下支持 NM 使用统一的 yarn 用户来执行任务。</p><a id="more"></a>
 
-  
-  
+<h2 id><a href="#" class="headerlink" title></a></h2>
+    </div>
 
-  
     
-    <div class="collection-year">
-      <h1 class="collection-header">2019</h1>
-    </div>
-  
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2019-11-20T19:52:08+08:00"
-              content="2019-11-20">
-          11-20
-        </time>
-      </div>
-
-      <h2 class="post-title">
+    
+    
         
-          <a class="post-title-link" href="/2019/11/20/yarn-limit-user-in-secure-mode/" itemprop="url">
-            <span itemprop="name">YARN 在 security 集群中使用统一用户运行 Container</span>
-          </a>
-        
-      </h2>
+      
 
-    </header>
+      <footer class="post-footer">
+          
+            
+          
+          <div class="post-tags">
+            
+              <a href="/tags/Yarn/" rel="tag"># Yarn</a>
+            
+              <a href="/tags/LinuxContainerExecutor/" rel="tag"># LinuxContainerExecutor</a>
+            
+              <a href="/tags/Security/" rel="tag"># Security</a>
+            
+          </div>
+        
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-next post-nav-item">
+              
+                <a href="/2019/11/14/hdfs-problems-collection/" rel="next" title="HDFS 问题总结">
+                  <i class="fa fa-chevron-left"></i> HDFS 问题总结
+                </a>
+              
+            </div>
+
+            <span class="post-nav-divider"></span>
+
+            <div class="post-nav-prev post-nav-item">
+              
+            </div>
+          </div>
+        
+      </footer>
+    
   </article>
-
-
-
+  
   
   
 
-  
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2019-10-20T00:00:00+08:00"
-              content="2019-10-20">
-          10-20
-        </time>
-      </div>
-
-      <h2 class="post-title">
-        
-          <a class="post-title-link" href="/2019/10/20/yarn-cgroup-usage/" itemprop="url">
-            <span itemprop="name">Yarn 使用 Cgroup 实现任务资源限制</span>
-          </a>
-        
-      </h2>
-
-    </header>
-  </article>
-
-
-
-  
-  
-
-  
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2019-10-12T00:00:00+08:00"
-              content="2019-10-12">
-          10-12
-        </time>
-      </div>
-
-      <h2 class="post-title">
-        
-          <a class="post-title-link" href="/2019/10/12/yarn-container-executor/" itemprop="url">
-            <span itemprop="name">Yarn ContainerExecutor 配置与使用</span>
-          </a>
-        
-      </h2>
-
-    </header>
-  </article>
-
-
-
-    </div>
   </div>
-  
-  
-  
-
-  
-
 
 
           </div>
@@ -393,6 +415,11 @@
 
   <aside class="sidebar">
     <div class="sidebar-inner">
+        
+        
+        
+        
+      
 
       <ul class="sidebar-nav motion-element">
         <li class="sidebar-nav-toc">
@@ -405,6 +432,8 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#null"><span class="nav-number">1.</span> <span class="nav-text"></span></a></li></ol></div>
+        
       </div>
       <!--/noindex-->
 
