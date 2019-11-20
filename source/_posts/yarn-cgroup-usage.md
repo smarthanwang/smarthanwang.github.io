@@ -26,7 +26,7 @@ NM 启用 CGroup 功能主要需要在 `yarn-site.xml` 里设置以下配置：
 
 ### 1. 启用 LCE ：
 
-在 Nodemanager 中， CGroup 功能集成在 LinuxContainerExecutor 中，所以要使用 CGroup 功能，**必须**设置 container-executor 为 LinuxContainerExecutor. 同时需要配置 NM 的 Unix Group，这个是可执行的二进制文件 container-executor 用来做安全验证的，需要与 container-executor.cfg 里面配置的一致。 详细配置可参见 LinuxContainerExecutor 的使用文档。
+在 Nodemanager 中， CGroup 功能集成在 LinuxContainerExecutor 中，所以要使用 CGroup 功能，**必须**设置 container-executor 为 LinuxContainerExecutor. 同时需要配置 NM 的 Unix Group，这个是可执行的二进制文件 container-executor 用来做安全验证的，需要与 container-executor.cfg 里面配置的一致。 详细配置可参见 [Yarn ContainerExecutor 配置与使用](yarn-container-executour)。
 
 ```xml
     <property>

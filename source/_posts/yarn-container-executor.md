@@ -19,7 +19,7 @@ Yarn 3.0 版本中，在 Linux 系统环境下，ContainerExecutor 有两种实�
 
 - LinuxContainerExecutor:   简称 LCE，相比于 DCE ，它能提供更多有用的功能，如用户权限隔离，支持使用提交任务用户来启动 container；支持使用 cgroup 进行资源限制； 支持运行 docker container (合并了 2.x 版本中的 DockerContainerExecutor)。 LCE 使用可执行的二进制文件 container-executor 来启动 container 进程，container 的用户根据配置可以统一使用默认用户，也可以使用提交任务的用户（需要提前在 NM 上添加所有支持的用户）。
 
-在默认的情况下，如果我们的集群是 non-secure ，而且没有什么特殊需求时，使用 DCE 就足够了，因为 DCE 配置和使用都很简单。但是当我们的集群要求安全性，想要支持 container 用户权限隔离，或者严格限制 container 的资源使用，再或者支持 docker container，我们就需要使用 LCE。
+**LCE 是安全的 ContainerExecutor**。在默认的情况下，如果我们的集群是 non-secure ，而且没有什么特殊需求时，使用 DCE 就足够了，因为 DCE 配置和使用都很简单。但是当我们的集群要求安全性，比如开启了 kerberos 验证，我们就必须使用 LCE，使用 DCE 的话 MR 任务会在 reduce shuffle 阶段失败退出，参见[YARN-1432](https://issues.apache.org/jira/browse/YARN-1432)。
 
 
 ## 配置
@@ -49,13 +49,13 @@ LCE 配置相对更加复杂一些， 具体如下：
     <value>hadoop</value>
   </property>
 
-  <!-- 是否限制 container 的启动用户，true：container 使用统一的用户启动 false: container 使用任务用户启动 -->
+  <!-- 集群在 nonsecure 模式时，是否限制 container 的启动用户，true：container 使用统一的用户启动 false: container 使用任务用户启动 -->
   <property>
     <name>yarn.nodemanager.linux-container-executor.nonsecure-mode.limit-users</name>
     <value>true</value>
   </property>
 
-  <!-- 限制 container 启动用户时，统一使用的用户，如果不设置，默认为 nobody -->
+  <!-- 集群在 nonsecure 模式时，且开启 container 启动用户限制时，统一使用的用户，如果不设置，默认为 nobody -->
   <property>
     <name>yarn.nodemanager.linux-container-executor.nonsecure-mode.local-user</name>
     <value>yarn</value>
@@ -109,7 +109,9 @@ chmode 0400 /etc/hadoop/conf/container-executor.cfg
 
 **4. 任务用户管理**    
 
-如果 `yarn.nodemanager.linux-container-executor.nonsecure-mode.limit-users` 设置的为 false，即使用提交任务用户来运行 container，则需要在集群所有的 NM 节点上将需要的用户通过 useradd 命令，逐个添加到机器上，否则任务运行时会因为找不到指定用户而失败。当集群规模比较大，用户很多时，添加用户还是比较繁琐的，建议统一使用 yarn 用户来启动 container。参考上面的 LCE 配置即可。
+在**集群未开启 security authentication 时，也就是集群的用户校验方式为 `hadoop.security.authentication=simple` 时**，如果开启用户限制`yarn.nodemanager.linux-container-executor.nonsecure-mode.limit-users=false`，也就是说使用任务提交用户来运行其 container 时，则需要提前在集群所有的 NM 节点上将需要的用户通过 useradd 命令，逐个添加到机器上，否则任务运行时会因为找不到指定用户而失败。当集群规模比较大，用户很多时，添加用户还是比较繁琐的，也不好维护，所以以我们的实践经验来看，建议开启用户限制，统一使用 yarn 用户来启动 container。
+
+不过当集群在 security 模式时，基本上就是开启kerberos 做权限验证时，只允许使用任务提交用户来启动 container，这时就比较苦逼的需要把 YARN 集群里的用户都添加到 NM 节点上才行。不过为了不这么麻烦，我对这块逻辑进行了修改，允许在安全下依然可以使用统一 yarn 用户来执行用户任务。具体实现方式可以查看[YARN 在安全模式下使用统一用户运行 container](yarn-limit-user-in-secure-mode)。
 
 
 当上述的操作都完成后，重启 NM ， LCE 就会被启用。
