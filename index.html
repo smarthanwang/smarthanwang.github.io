@@ -254,7 +254,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block home" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/11/20/yarn-limit-user-in-secure-mode/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/11/26/yarn-limit-user-in-secure-mode/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="smarthan">
@@ -269,7 +269,7 @@
         <h1 class="post-title" itemprop="name headline">
           
             
-            <a href="/2019/11/20/yarn-limit-user-in-secure-mode/" class="post-title-link" itemprop="url">YARN 在 security 集群中使用统一用户运行 Container</a>
+            <a href="/2019/11/26/yarn-limit-user-in-secure-mode/" class="post-title-link" itemprop="url">YARN 在 security 集群中使用统一用户运行 Container</a>
           
         </h1>
 
@@ -284,7 +284,7 @@
                 
               
 
-              <time title="创建时间：2019-11-20 19:52:08" itemprop="dateCreated datePublished" datetime="2019-11-20T19:52:08+08:00">2019-11-20</time>
+              <time title="创建时间：2019-11-26 20:15:21" itemprop="dateCreated datePublished" datetime="2019-11-26T20:15:21+08:00">2019-11-26</time>
             </span>
           
             <span class="post-meta-item">
@@ -314,7 +314,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>446</span>
+              <span>4.7k</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -324,7 +324,7 @@
               
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
               
-              <span>1 分钟</span>
+              <span>4 分钟</span>
             </span>
           
 
@@ -337,11 +337,11 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最开始的 simple 模式的验证方式已经无法满足需求了，因此，我们决定使用 kerberos 开启集群的安全验证: Run Hadoop in Secure Mode。</p><p>在实践中过程中，我们发现在 Secure Mode 时，NM 必须使用 LinuxContainerExecutor，如果使用 DefaultContainerExecutor 的话，MR 任务会在 reduce shuffle 阶段失败退出，参见<a href="https://issues.apache.org/jira/browse/YARN-1432" target="_blank" rel="noopener">YARN-1432</a>。同时，LCE 会使用任务提交用户 JobUser 来运行 Container，如果 NM 上不存在 JobUser，任务就会失败退出。 Hadoop 这样做的逻辑是为了实现用户权限隔离，保证用户任务和数据的安全，但是在实践中过程中，由于我们集群中用户过多，在 NM 上逐一添加用户过于繁琐，而且后续维护起来比较麻烦，因此，我们决定修改这块的代码逻辑，在 Secure Mode 下支持 NM 使用统一的 yarn 用户来执行任务。</p>
+          <p>在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最原始的 SIMPLE 验证方式已经无法满足需求了，因此，我们决定使用 kerberos, 开启集群的安全验证: Run Hadoop in Secure Mode。</p><p>在实践中过程中，我们发现在 Secure Mode 时，NM 必须使用 LinuxContainerExecutor，如果使用 DefaultContainerExecutor 的话，MR 任务会在 reduce shuffle 阶段失败退出，参见<a href="https://issues.apache.org/jira/browse/YARN-1432" target="_blank" rel="noopener">YARN-1432</a>。同时，LCE 会使用任务提交用户 JobUser 来运行 Container，如果 NM 上不存在 JobUser，任务就会失败退出。 </p>
           <!--noindex-->
           
             <div class="post-button">
-              <a class="btn" href="/2019/11/20/yarn-limit-user-in-secure-mode/#more" rel="contents">
+              <a class="btn" href="/2019/11/26/yarn-limit-user-in-secure-mode/#more" rel="contents">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -979,14 +979,14 @@
     </span>
       <span class="post-meta-item-text">站点总字数：</span>
     
-    <span title="站点总字数">13k</span>
+    <span title="站点总字数">18k</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
       <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
     
-    <span title="站点阅读时长">12 分钟</span>
+    <span title="站点阅读时长">16 分钟</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
   </div>

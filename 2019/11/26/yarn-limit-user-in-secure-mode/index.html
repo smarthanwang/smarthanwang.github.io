@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+
+
+
+
+
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.4.2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.4.2">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.4.2">
+  <link rel="mask-icon" href="/images/logo.svg?v=7.4.2" color="#222">
+  <meta name="google-site-verification" content="H5rsP6t3WmCyNG_7CBVrCyBhahTN7rF6n6l6cSro8yA">
+
+<link rel="stylesheet" href="/css/main.css?v=7.4.2">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '7.4.2',
+    exturl: false,
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    bookmark: {"enable":false,"color":"#222","save":"auto"},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: 'search.xml',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    },
+    sidebarPadding: 40
+  };
+</script>
+
+  <meta name="description" content="在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最原始的 SIMPLE 验证方式已经无法满足需求了，因此，我们决定使用 kerberos, 开启集群的安全验证: Run Hadoop in Secure Mode。在实践中过程中，我们发现在 Secure Mode 时，NM 必须使用 LinuxContainerExecutor，如果使用 De">
+<meta name="keywords" content="Yarn,LinuxContainerExecutor,Security">
+<meta property="og:type" content="article">
+<meta property="og:title" content="YARN 在 security 集群中使用统一用户运行 Container">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;11&#x2F;26&#x2F;yarn-limit-user-in-secure-mode&#x2F;index.html">
+<meta property="og:site_name" content="Smarthan&#39;s Notebook">
+<meta property="og:description" content="在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最原始的 SIMPLE 验证方式已经无法满足需求了，因此，我们决定使用 kerberos, 开启集群的安全验证: Run Hadoop in Secure Mode。在实践中过程中，我们发现在 Secure Mode 时，NM 必须使用 LinuxContainerExecutor，如果使用 De">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-11-26T12:15:21.731Z">
+<meta name="twitter:card" content="summary">
+  <link rel="canonical" href="http://yoursite.com/2019/11/26/yarn-limit-user-in-secure-mode/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true,
+    isPage: false,
+    isArchive: false
+  };
+</script>
+
+  <title>YARN 在 security 集群中使用统一用户运行 Container | Smarthan's Notebook</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Smarthan's Notebook</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">记录学习，记录生活</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+      
+      
+        
+        
+        <li class="menu-item menu-item-home">
+      
+    
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-tags">
+      
+    
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-categories">
+      
+    
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-archives">
+      
+    
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+      
+    
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger">
+          <i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+    
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="none"
+           placeholder="搜索..." spellcheck="false"
+           type="text" id="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/smarthanwang" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+            
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/11/26/yarn-limit-user-in-secure-mode/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="smarthan">
+      <meta itemprop="description" content="keep coding, keep learning">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Smarthan's Notebook">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          
+            YARN 在 security 集群中使用统一用户运行 Container
+            
+
+          
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              
+                
+              
+
+              <time title="创建时间：2019-11-26 20:15:21" itemprop="dateCreated datePublished" datetime="2019-11-26T20:15:21+08:00">2019-11-26</time>
+            </span>
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Hadoop-YARN/" itemprop="url" rel="index">
+                    <span itemprop="name">Hadoop-YARN</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+          
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">本文字数：</span>
+              
+              <span>4.7k</span>
+            </span>
+          
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              
+              <span>4 分钟</span>
+            </span>
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最原始的 SIMPLE 验证方式已经无法满足需求了，因此，我们决定使用 kerberos, 开启集群的安全验证: Run Hadoop in Secure Mode。</p><p>在实践中过程中，我们发现在 Secure Mode 时，NM 必须使用 LinuxContainerExecutor，如果使用 DefaultContainerExecutor 的话，MR 任务会在 reduce shuffle 阶段失败退出，参见<a href="https://issues.apache.org/jira/browse/YARN-1432" target="_blank" rel="noopener">YARN-1432</a>。同时，LCE 会使用任务提交用户 JobUser 来运行 Container，如果 NM 上不存在 JobUser，任务就会失败退出。 </p><a id="more"></a>
+
+<p>其实简单想想就能理解 Hadoop 这样设计的逻辑是为了实现用户隔离，保证用户任务和数据的安全，但是在实践过程中，由于我们集群中用户过多，在 NM 上逐一添加用户过于繁琐，而且后续维护起来比较麻烦，因此，我们决定修改这块的代码逻辑，使 NM 在 Secure Mode 下支持使用统一的 yarn 用户来执行任务。</p>
+<h2 id="原始逻辑解析"><a href="#原始逻辑解析" class="headerlink" title="原始逻辑解析"></a>原始逻辑解析</h2><p>为了实现我们的目的，先得了解 NM 这块代码的实现逻辑，所以我对这块的代码逻辑进行了梳理，发现安全用户限制的逻辑存在于 LinuxContainerExecutor 和 SecureIOUtils 两个类中。</p>
+<h3 id="LinuxContainerExecutor"><a href="#LinuxContainerExecutor" class="headerlink" title="LinuxContainerExecutor"></a>LinuxContainerExecutor</h3><p>LCE 在初始化，启动以及清理 container 之前，都会调用 <code>getRunAsUser(jobUser)</code> 方法获取该 container 实际运行时该使用的用户，再使用该用户去对 container 执行相应的操作。</p>
+<p>如果集群未开启安全验证方式（使用 SIMPLE 验证方式： 如果配置 nonsecure 模式下限制用户时，getRunAsUser 返回统一的用户，默认是 nobody。如果配置不限制用户时，getRunAsUser 返回任务提交用户。</p>
+<p>如果集群开启了安全验证方式 (使用 kerberos 验证方式)： getRunAsUser 返回任务提交用户。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Determine if UserGroupInformation is using Kerberos to determine</span></span><br><span class="line"><span class="comment"> * user identities or is relying on simple authentication</span></span><br><span class="line"><span class="comment"> * </span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span> true if UGI is working in a secure environment</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">boolean</span> <span class="title">isSecurityEnabled</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> !isAuthenticationMethodEnabled(AuthenticationMethod.SIMPLE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// nonsecure 模式下是否限制用户，默认 true</span></span><br><span class="line"><span class="keyword">boolean</span> containerLimitUsers = conf.getBoolean(</span><br><span class="line">  <span class="string">"yarn.nodemanager.linux-container-executor.nonsecure-mode.limit-users"</span>, <span class="keyword">true</span>);</span><br><span class="line"><span class="comment">// nonsecure 模式下默认使用的本地用户， 默认 nobody</span></span><br><span class="line">String nonsecureLocalUser = conf.get(</span><br><span class="line">  <span class="string">"yarn.nodemanager.linux-container-executor.nonsecure-mode.local-user"</span> ,<span class="string">"nobody"</span>);</span><br><span class="line"></span><br><span class="line"><span class="function">String <span class="title">getRunAsUser</span><span class="params">(String user)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (UserGroupInformation.isSecurityEnabled() ||</span><br><span class="line">      !containerLimitUsers) &#123;</span><br><span class="line">    <span class="keyword">return</span> user;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> nonsecureLocalUser;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>LCE 获取到实际用户后，会去调用 container-executor 二进制可执行文件来初始化和启动 container，container-executor 在启动时会执行 set_user 函数来设置 container 实际的执行用户，在这个函数中又会调用 check_user 函数，对该用户进行一系列的校验，主要包括：不是 root， UID 大于配置的 minUid，该用户本地实际存在以及不在禁用用户列表里。当校验不通过时，就会报错退出。所以，当 LCE 传递进来的指定用户在机器上不存在时，container 就会失败退出。</p>
+<p>container-executor.c</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Is the user a real user account?</span></span><br><span class="line"><span class="comment"> * Checks:</span></span><br><span class="line"><span class="comment"> *   1. Not root</span></span><br><span class="line"><span class="comment"> *   2. UID is above the minimum configured.</span></span><br><span class="line"><span class="comment"> *   3. Not in banned user list</span></span><br><span class="line"><span class="comment"> * Returns NULL on failure</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function">struct passwd* <span class="title">check_user</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *user)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">strcmp</span>(user, <span class="string">"root"</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="built_in">fprintf</span>(LOGFILE, <span class="string">"Running as root is not allowed\n"</span>);</span><br><span class="line">    fflush(LOGFILE);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">char</span> *min_uid_str = get_section_value(MIN_USERID_KEY, &amp;executor_cfg);</span><br><span class="line">  <span class="keyword">int</span> min_uid = DEFAULT_MIN_USERID;</span><br><span class="line">  <span class="keyword">if</span> (min_uid_str != <span class="literal">NULL</span>) &#123;</span><br><span class="line">    <span class="keyword">char</span> *end_ptr = <span class="literal">NULL</span>;</span><br><span class="line">    min_uid = strtol(min_uid_str, &amp;end_ptr, <span class="number">10</span>);</span><br><span class="line">    <span class="keyword">if</span> (min_uid_str == end_ptr || *end_ptr != <span class="string">'\0'</span>) &#123;</span><br><span class="line">      <span class="built_in">fprintf</span>(LOGFILE, <span class="string">"Illegal value of %s for %s in configuration\n"</span>,</span><br><span class="line">	      min_uid_str, MIN_USERID_KEY);</span><br><span class="line">      fflush(LOGFILE);</span><br><span class="line">      <span class="built_in">free</span>(min_uid_str);</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">free</span>(min_uid_str);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">passwd</span> *<span class="title">user_info</span> = <span class="title">get_user_info</span>(<span class="title">user</span>);</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="literal">NULL</span> == user_info) &#123;</span><br><span class="line">    <span class="built_in">fprintf</span>(LOGFILE, <span class="string">"User %s not found\n"</span>, user);</span><br><span class="line">    fflush(LOGFILE);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (user_info-&gt;pw_uid &lt; min_uid &amp;&amp; !is_whitelisted(user)) &#123;</span><br><span class="line">    <span class="built_in">fprintf</span>(LOGFILE, <span class="string">"Requested user %s is not whitelisted and has id %d,"</span></span><br><span class="line">	    <span class="string">"which is below the minimum allowed %d\n"</span>, user, user_info-&gt;pw_uid, min_uid);</span><br><span class="line">    fflush(LOGFILE);</span><br><span class="line">    <span class="built_in">free</span>(user_info);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">char</span> **banned_users = get_section_values(BANNED_USERS_KEY, &amp;executor_cfg);</span><br><span class="line">  banned_users = banned_users == <span class="literal">NULL</span> ?</span><br><span class="line">    (<span class="keyword">char</span>**) DEFAULT_BANNED_USERS : banned_users;</span><br><span class="line">  <span class="keyword">char</span> **banned_user = banned_users;</span><br><span class="line">  <span class="keyword">for</span>(; *banned_user; ++banned_user) &#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">strcmp</span>(*banned_user, user) == <span class="number">0</span>) &#123;</span><br><span class="line">      <span class="built_in">free</span>(user_info);</span><br><span class="line">      <span class="keyword">if</span> (banned_users != (<span class="keyword">char</span>**)DEFAULT_BANNED_USERS) &#123;</span><br><span class="line">        free_values(banned_users);</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="built_in">fprintf</span>(LOGFILE, <span class="string">"Requested user %s is banned\n"</span>, user);</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (banned_users != <span class="literal">NULL</span> &amp;&amp; banned_users != (<span class="keyword">char</span>**)DEFAULT_BANNED_USERS) &#123;</span><br><span class="line">    free_values(banned_users);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> user_info;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="SecureIOUtils"><a href="#SecureIOUtils" class="headerlink" title="SecureIOUtils"></a>SecureIOUtils</h3><p>SecureIOUtils 是一个公用的提供安全的读写本地文件接口的工具类，当集群开启安全验证之后，SecureIOUtils 提供的读写接口会对发起读写用户与本地文件的属主进行对比，如果不一致，则抛出 IOException。</p>
+<p>MR 的 ShuffleHandler 在读取 map 输出的 spill 文件时会调用 SecureIOUtils，ShuffleHandler 读时使用的用户任务提交用户，当用户与文件属主不一致时，shuffle 就会一直失败，最终任务的 reduce 因为 shuffle 失败而退出。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">checkStat</span><span class="params">(File f, String owner, String group, </span></span></span><br><span class="line"><span class="function"><span class="params">    String expectedOwner, </span></span></span><br><span class="line"><span class="function"><span class="params">    String expectedGroup)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">  <span class="keyword">boolean</span> success = <span class="keyword">true</span>;</span><br><span class="line">  <span class="keyword">if</span> (expectedOwner != <span class="keyword">null</span> &amp;&amp;</span><br><span class="line">      !expectedOwner.equals(owner)) &#123;</span><br><span class="line">    <span class="keyword">if</span> (Path.WINDOWS) &#123;</span><br><span class="line">      UserGroupInformation ugi =</span><br><span class="line">          UserGroupInformation.createRemoteUser(expectedOwner);</span><br><span class="line">      <span class="keyword">final</span> String adminsGroupString = <span class="string">"Administrators"</span>;</span><br><span class="line">      success = owner.equals(adminsGroupString)</span><br><span class="line">          &amp;&amp; ugi.getGroups().contains(adminsGroupString);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      success = <span class="keyword">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (!success) &#123;</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> IOException(</span><br><span class="line">        <span class="string">"Owner '"</span> + owner + <span class="string">"' for path "</span> + f + <span class="string">" did not match "</span> +</span><br><span class="line">            <span class="string">"expected owner '"</span> + expectedOwner + <span class="string">"'"</span>);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="优化方案"><a href="#优化方案" class="headerlink" title="优化方案"></a>优化方案</h2><p>根据上述的代码逻辑分析，我们发现其实想要实现我们的目的其实是很简单的，只要修改两点就可以做到：</p>
+<ul>
+<li>LCE getRunAsUser 支持 security 模式下返回统一用户</li>
+<li>SecureIOUtils 支持 security 模式下用户读取不属于自己的文件</li>
+</ul>
+<p>代码修改实现起来很简单，这里给一个基于 3.2.0 分支的 patch。</p>
+
+    </div>
+
+    
+    
+    
+        
+      
+
+      <footer class="post-footer">
+          
+            
+          
+          <div class="post-tags">
+            
+              <a href="/tags/Yarn/" rel="tag"># Yarn</a>
+            
+              <a href="/tags/LinuxContainerExecutor/" rel="tag"># LinuxContainerExecutor</a>
+            
+              <a href="/tags/Security/" rel="tag"># Security</a>
+            
+          </div>
+        
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-next post-nav-item">
+              
+                <a href="/2019/11/14/hdfs-problems-collection/" rel="next" title="HDFS 问题总结">
+                  <i class="fa fa-chevron-left"></i> HDFS 问题总结
+                </a>
+              
+            </div>
+
+            <span class="post-nav-divider"></span>
+
+            <div class="post-nav-prev post-nav-item">
+              
+            </div>
+          </div>
+        
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+        
+        
+        
+        
+      
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#原始逻辑解析"><span class="nav-number">1.</span> <span class="nav-text">原始逻辑解析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#LinuxContainerExecutor"><span class="nav-number">1.1.</span> <span class="nav-text">LinuxContainerExecutor</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SecureIOUtils"><span class="nav-number">1.2.</span> <span class="nav-text">SecureIOUtils</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#优化方案"><span class="nav-number">2.</span> <span class="nav-text">优化方案</span></a></li></ol></div>
+        
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">smarthan</p>
+  <div class="site-description" itemprop="description">keep coding, keep learning</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+          
+            <a href="/categories/">
+          
+        
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+          
+            <a href="/tags/">
+          
+        
+        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-name">标签</span>
+        </a>
+      </div>
+    
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="https://github.com/smarthanwang" title="GitHub &amp;rarr; https:&#x2F;&#x2F;github.com&#x2F;smarthanwang" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="mailto:smarthanwang@gmail.com" title="E-Mail &amp;rarr; mailto:smarthanwang@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+    
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2019</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">smarthan</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    
+    <span title="站点总字数">18k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    
+    <span title="站点阅读时长">16 分钟</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">
+      
+    主题 – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.4.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+  
+    <span class="post-meta-divider">|</span>
+  
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js?v=3.1.0"></script>
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+<script src="/js/utils.js?v=7.4.2"></script><script src="/js/motion.js?v=7.4.2"></script>
+<script src="/js/schemes/pisces.js?v=7.4.2"></script>
+<script src="/js/next-boot.js?v=7.4.2"></script>
+
+
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+
+  <script src="/js/local-search.js?v=7.4.2"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>
