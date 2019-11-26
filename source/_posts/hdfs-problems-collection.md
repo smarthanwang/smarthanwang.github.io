@@ -65,7 +65,7 @@ HDFS 支持使用 kerberos 认证作为用户权限校验工具，开启的集�
     <value>true</value>
   </property>
 
-``` 
+```
 
 当 security 集群 客户端通过指定 namenode 地址访问另一个 non security 的的集群时会有以下报错：
 
