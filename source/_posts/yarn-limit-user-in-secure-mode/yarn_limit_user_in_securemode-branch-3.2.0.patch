@@ -1,0 +1,166 @@
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeys.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeys.java
+index 1eb27f8..4c2fd08 100644
+--- a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeys.java
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeys.java
+@@ -334,7 +334,14 @@
+ 
+   public static final long HADOOP_SECURITY_UID_NAME_CACHE_TIMEOUT_DEFAULT =
+     4*60*60; // 4 hours
+-  
++
++  /*Whether limit user can only read local file which own by himself when
++  cluster is security
++   */
++  public static final String HADOOP_SECURITY_IO_LIMIT_USER_KEY =
++      "hadoop.security.io.limit-user";
++  public static final boolean HADOOP_SECURITY_IO_LIMIT_USER_DEFAULT =true;
++
+   public static final String  IPC_CLIENT_ASYNC_CALLS_MAX_KEY =
+       "ipc.client.async.calls.max";
+   public static final int     IPC_CLIENT_ASYNC_CALLS_MAX_DEFAULT = 100;
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/io/SecureIOUtils.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/io/SecureIOUtils.java
+index 252ee4c..96f4f10 100644
+--- a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/io/SecureIOUtils.java
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/io/SecureIOUtils.java
+@@ -24,6 +24,7 @@
+ import java.io.RandomAccessFile;
+ 
+ import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.fs.CommonConfigurationKeys;
+ import org.apache.hadoop.fs.FSDataInputStream;
+ import org.apache.hadoop.fs.FileSystem;
+ import org.apache.hadoop.fs.Path;
+@@ -75,7 +76,11 @@
+     // Pre-cache an instance of the raw FileSystem since we sometimes
+     // do secure IO in a shutdown hook, where this call could fail.
+     try {
+-      rawFilesystem = FileSystem.getLocal(new Configuration()).getRaw();
++      Configuration conf = new Configuration();
++      rawFilesystem = FileSystem.getLocal(conf).getRaw();
++      secureIOLimitUser = conf.getBoolean(
++          CommonConfigurationKeys.HADOOP_SECURITY_IO_LIMIT_USER_KEY,
++          CommonConfigurationKeys.HADOOP_SECURITY_IO_LIMIT_USER_DEFAULT);
+     } catch (IOException ie) {
+       throw new RuntimeException(
+       "Couldn't obtain an instance of RawLocalFileSystem.");
+@@ -86,6 +91,7 @@
+     skipSecurity = !canBeSecure;
+   }
+ 
++  private final static boolean secureIOLimitUser;
+   private final static boolean skipSecurity;
+   private final static FileSystem rawFilesystem;
+ 
+@@ -264,6 +270,11 @@ public static FileOutputStream createForWrite(File f, int permissions)
+   private static void checkStat(File f, String owner, String group, 
+       String expectedOwner, 
+       String expectedGroup) throws IOException {
++    // if not limit user, skip check
++    if (!secureIOLimitUser){
++      return;
++    }
++
+     boolean success = true;
+     if (expectedOwner != null &&
+         !expectedOwner.equals(owner)) {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
+index 5f0ad9a..fbfc7e5 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
+@@ -2065,6 +2065,24 @@ public static boolean isAclEnabled(Configuration conf) {
+ 
+   /**
+    * True if linux-container-executor should limit itself to one user
++   * when running in secure mode.
++   */
++  public static final String NM_SECURE_MODE_LIMIT_USERS = NM_PREFIX +
++      "linux-container-executor.secure-mode.limit-users";
++
++  public static final boolean DEFAULT_NM_SECURE_MODE_LIMIT_USERS = true;
++
++  /**
++   * The UNIX user that containers will run as when Linux-container-executor
++   * is used in secure mode (a use case for this is using cgroups).
++   */
++  public static final String NM_SECURE_MODE_LOCAL_USER_KEY = NM_PREFIX +
++      "linux-container-executor.secure-mode.local-user";
++
++  public static final String DEFAULT_NM_SECURE_MODE_LOCAL_USER = "nobody";
++
++  /**
++   * True if linux-container-executor should limit itself to one user
+    * when running in non-secure mode.
+    */
+   public static final String NM_NONSECURE_MODE_LIMIT_USERS = NM_PREFIX +
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/LinuxContainerExecutor.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/LinuxContainerExecutor.java
+index fccf668..4e673f7 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/LinuxContainerExecutor.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/LinuxContainerExecutor.java
+@@ -105,12 +105,14 @@
+   private static final Logger LOG =
+        LoggerFactory.getLogger(LinuxContainerExecutor.class);
+ 
++  private String secureLocalUser;
+   private String nonsecureLocalUser;
+   private Pattern nonsecureLocalUserPattern;
+   private LCEResourcesHandler resourcesHandler;
+   private boolean containerSchedPriorityIsSet = false;
+   private int containerSchedPriorityAdjustment = 0;
+-  private boolean containerLimitUsers;
++  private boolean secureContainerLimitUsers;
++  private boolean nonsecurecontainerlimitusers;
+   private ResourceHandler resourceHandlerChain;
+   private LinuxContainerRuntime linuxContainerRuntime;
+   private Context nmContext;
+@@ -203,13 +205,25 @@ public void setConf(Configuration conf) {
+     nonsecureLocalUserPattern = Pattern.compile(
+         conf.get(YarnConfiguration.NM_NONSECURE_MODE_USER_PATTERN_KEY,
+             YarnConfiguration.DEFAULT_NM_NONSECURE_MODE_USER_PATTERN));
+-    containerLimitUsers = conf.getBoolean(
++    nonsecurecontainerlimitusers = conf.getBoolean(
+         YarnConfiguration.NM_NONSECURE_MODE_LIMIT_USERS,
+         YarnConfiguration.DEFAULT_NM_NONSECURE_MODE_LIMIT_USERS);
+-    if (!containerLimitUsers) {
++    if (!nonsecurecontainerlimitusers) {
+       LOG.warn(YarnConfiguration.NM_NONSECURE_MODE_LIMIT_USERS +
+           ": impersonation without authentication enabled");
+     }
++    if (UserGroupInformation.isSecurityEnabled()){
++      secureLocalUser = conf.get(
++          YarnConfiguration.NM_SECURE_MODE_LOCAL_USER_KEY,
++          YarnConfiguration.DEFAULT_NM_SECURE_MODE_LOCAL_USER);
++      secureContainerLimitUsers = conf.getBoolean(
++          YarnConfiguration.NM_SECURE_MODE_LIMIT_USERS,
++          YarnConfiguration.DEFAULT_NM_SECURE_MODE_LIMIT_USERS);
++      if (secureContainerLimitUsers){
++        LOG.warn("NM run in secure mode, but limit container user as {} ",
++            secureLocalUser);
++      }
++    }
+   }
+ 
+   private LCEResourcesHandler getResourcesHandler(Configuration conf) {
+@@ -238,11 +252,18 @@ void verifyUsernamePattern(String user) {
+   }
+ 
+   String getRunAsUser(String user) {
+-    if (UserGroupInformation.isSecurityEnabled() ||
+-        !containerLimitUsers) {
+-      return user;
+-    } else {
+-      return nonsecureLocalUser;
++    if (UserGroupInformation.isSecurityEnabled()){
++      if (!secureContainerLimitUsers){
++        return user;
++      }else {
++        return secureLocalUser;
++      }
++    } else{
++      if(!nonsecurecontainerlimitusers) {
++        return user;
++      } else {
++        return nonsecureLocalUser;
++      }
+     }
+   }
+ 

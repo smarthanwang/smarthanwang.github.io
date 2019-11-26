@@ -164,4 +164,5 @@ MR 的 ShuffleHandler 在读取 map 输出的 spill 文件时会调用 SecureIOU
 - LCE getRunAsUser 支持 security 模式下返回统一用户
 - SecureIOUtils 支持 security 模式下用户读取不属于自己的文件
 
-代码修改实现起来很简单，这里给一个基于 3.2.0 分支的 patch。
+代码修改实现起来很简单，这里给一个基于 3.2.0 分支的 [patch](yarn_limit_user_in_securemode-branch-3.2.0.patch)
+
