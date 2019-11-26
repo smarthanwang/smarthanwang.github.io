@@ -64,7 +64,7 @@
 <meta property="og:site_name" content="Smarthan&#39;s Notebook">
 <meta property="og:description" content="在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最原始的 SIMPLE 验证方式已经无法满足需求了，因此，我们决定使用 kerberos, 开启集群的安全验证: Run Hadoop in Secure Mode。在实践中过程中，我们发现在 Secure Mode 时，NM 必须使用 LinuxContainerExecutor，如果使用 De">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-11-26T12:15:21.731Z">
+<meta property="og:updated_time" content="2019-11-26T15:25:02.378Z">
 <meta name="twitter:card" content="summary">
   <link rel="canonical" href="http://yoursite.com/2019/11/26/yarn-limit-user-in-secure-mode/">
 
@@ -130,7 +130,7 @@
         <span class="logo-line-after"><i></i></span>
       </a>
     </div>
-        <p class="site-subtitle">记录学习，记录生活</p>
+        <p class="site-subtitle">记录学习，记录成长</p>
       
   </div>
 
@@ -286,7 +286,7 @@
                 
               
 
-              <time title="创建时间：2019-11-26 20:15:21" itemprop="dateCreated datePublished" datetime="2019-11-26T20:15:21+08:00">2019-11-26</time>
+              <time title="创建时间：2019-11-26 23:25:02" itemprop="dateCreated datePublished" datetime="2019-11-26T23:25:02+08:00">2019-11-26</time>
             </span>
           
             <span class="post-meta-item">
@@ -369,7 +369,7 @@
 <li>LCE getRunAsUser 支持 security 模式下返回统一用户</li>
 <li>SecureIOUtils 支持 security 模式下用户读取不属于自己的文件</li>
 </ul>
-<p>代码修改实现起来很简单，这里给一个基于 3.2.0 分支的 patch。</p>
+<p>代码修改实现起来很简单，这里给一个基于 3.2.0 分支的 <a href="yarn_limit_user_in_securemode-branch-3.2.0.patch">patch</a></p>
 
     </div>
 
@@ -399,7 +399,7 @@
           <div class="post-nav">
             <div class="post-nav-next post-nav-item">
               
-                <a href="/2019/11/14/hdfs-problems-collection/" rel="next" title="HDFS 问题总结">
+                <a href="/2019/11/26/hdfs-problems-collection/" rel="next" title="HDFS 问题总结">
                   <i class="fa fa-chevron-left"></i> HDFS 问题总结
                 </a>
               
