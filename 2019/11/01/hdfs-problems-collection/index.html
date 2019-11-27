@@ -20,6 +20,7 @@
 
 
 <link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
 
 <script id="hexo-configurations">
@@ -33,10 +34,10 @@
     copycode: {"enable":true,"show_result":true,"style":"mac"},
     back2top: {"enable":true,"sidebar":true,"scrollpercent":true},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
-    fancybox: false,
+    fancybox: true,
     mediumzoom: false,
     lazyload: false,
-    pangu: false,
+    pangu: true,
     algolia: {
       appID: '',
       apiKey: '',
@@ -60,13 +61,13 @@
 <meta name="keywords" content="HDFS,trouble shooting,运维">
 <meta property="og:type" content="article">
 <meta property="og:title" content="HDFS 问题总结">
-<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;11&#x2F;26&#x2F;hdfs-problems-collection&#x2F;index.html">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;11&#x2F;01&#x2F;hdfs-problems-collection&#x2F;index.html">
 <meta property="og:site_name" content="Smarthan&#39;s Notebook">
 <meta property="og:description" content="在日常维护 HDFS 集群以及为用户提供技术支持时，我们经常会遇到各种 HDFS 相关异常问题，对于一些常见的问题，我们可能知道如何去解决，所以处理起来会比较快。但是当遇到一些不常见的问题时，我们可能没办法根据异常信息直接找到解决方法，可能需要查找一些资料，或者深入源码层面查找问题所在，处理起来比较费时费力，很可能对集群的业务造成影响。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-11-26T15:04:27.013Z">
+<meta property="og:updated_time" content="2019-11-27T04:42:44.189Z">
 <meta name="twitter:card" content="summary">
-  <link rel="canonical" href="http://yoursite.com/2019/11/26/hdfs-problems-collection/">
+  <link rel="canonical" href="http://yoursite.com/2019/11/01/hdfs-problems-collection/">
 
 
 <script id="page-configurations">
@@ -130,7 +131,7 @@
         <span class="logo-line-after"><i></i></span>
       </a>
     </div>
-        <p class="site-subtitle">Life is all memory.</p>
+        <h1 class="site-subtitle" itemprop="description">Life is all memory.</h1>
       
   </div>
 
@@ -251,7 +252,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/11/26/hdfs-problems-collection/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/11/01/hdfs-problems-collection/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="smarthan">
@@ -263,13 +264,13 @@
       <meta itemprop="name" content="Smarthan's Notebook">
     </span>
       <header class="post-header">
-        <h1 class="post-title" itemprop="name headline">
+        <h2 class="post-title" itemprop="name headline">
           
             HDFS 问题总结
             
 
           
-        </h1>
+        </h2>
 
         <div class="post-meta">
             <span class="post-meta-item">
@@ -282,8 +283,20 @@
                 
               
 
-              <time title="创建时间：2019-11-26 23:04:27" itemprop="dateCreated datePublished" datetime="2019-11-26T23:04:27+08:00">2019-11-26</time>
+              <time title="创建时间：2019-11-01 00:00:00" itemprop="dateCreated datePublished" datetime="2019-11-01T00:00:00+08:00">2019-11-01</time>
             </span>
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2019-11-27 12:42:44" itemprop="dateModified" datetime="2019-11-27T12:42:44+08:00">2019-11-27</time>
+              </span>
+            
           
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -320,7 +333,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>4.7k</span>
+              <span>4.6k</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -358,7 +371,10 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">1. 使用 fsck 找出未正常关闭文件</span><br><span class="line">hdfs fsck path -openforwrite </span><br><span class="line"></span><br><span class="line">对于 federation 集群需要指定 defaultFS</span><br><span class="line">hdfs fsck -Dfs.defaultFS=hdfs://nameservice:8020/ path -openforwrite </span><br><span class="line"></span><br><span class="line"></span><br><span class="line">2. 手动释放租约</span><br><span class="line">hdfs debug recoverLease -path openfile -retries 3</span><br></pre></td></tr></table></figure>
 
 <h2 id="安全集群-kerberos-无法访问非安全集群"><a href="#安全集群-kerberos-无法访问非安全集群" class="headerlink" title="安全集群 (kerberos) 无法访问非安全集群"></a>安全集群 (kerberos) 无法访问非安全集群</h2><h3 id="异常信息-1"><a href="#异常信息-1" class="headerlink" title="异常信息"></a>异常信息</h3><p>HDFS 支持使用 kerberos 认证作为用户权限校验工具，开启的集群的 security 模式。 安全模式的配置大致为</p>
-<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">  <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">name</span>&gt;</span>hadoop.security.authentication<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">value</span>&gt;</span>kerberos<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">name</span>&gt;</span>hadoop.security.authorization<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">``` </span><br><span class="line"></span><br><span class="line">当 security 集群 客户端通过指定 namenode 地址访问另一个 non security 的的集群时会有以下报错：</span><br><span class="line"></span><br><span class="line">```java</span><br><span class="line">hadoop fs -ls hdfs:master001.mars.sjs.ted:8020/user </span><br><span class="line"></span><br><span class="line">19/05/31 17:14:34 INFO configfile.ConfigFileHasClientPlugin: Get the user info successfully, login user : hdfs</span><br><span class="line">ls: Failed on local exception: java.io.IOException: Server asks us to fall back to SIMPLE auth, but this client is configured to only allow secure connections.; Host Details : local host is: "cloud_dev.gd.ted/10.135.43.214"; destination host is: "master001.mars.sjs.ted":8020;</span><br></pre></td></tr></table></figure>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>hadoop.security.authentication<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>kerberos<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>hadoop.security.authorization<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>当 security 集群 客户端通过指定 namenode 地址访问另一个 non security 的的集群时会有以下报错：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">hadoop fs -ls hdfs:master001.mars.sjs.ted:<span class="number">8020</span>/user </span><br><span class="line"></span><br><span class="line"><span class="number">19</span>/<span class="number">05</span>/<span class="number">31</span> <span class="number">17</span>:<span class="number">14</span>:<span class="number">34</span> INFO configfile.ConfigFileHasClientPlugin: Get the user info successfully, login user : hdfs</span><br><span class="line">ls: Failed on local exception: java.io.IOException: Server asks us to fall back to SIMPLE auth, but <span class="keyword">this</span> client is configured to only allow secure connections.; Host Details : local host is: <span class="string">"cloud_dev.gd.ted/10.135.43.214"</span>; destination host is: <span class="string">"master001.mars.sjs.ted"</span>:<span class="number">8020</span>;</span><br></pre></td></tr></table></figure>
 
 <h3 id="产生原因-1"><a href="#产生原因-1" class="headerlink" title="产生原因"></a>产生原因</h3><p>当客户端开启了安全认证模式，而请求的 service 服务使用 SIMPLE 模式，未开启安全认证的时候 IPC Client 在与 server 端建立连接时，会因为验证方式不一致而抛出此异常。</p>
 <h3 id="解决方式"><a href="#解决方式" class="headerlink" title="解决方式"></a>解决方式</h3><p>解决方法是在客户端添加配置，允许 security 的客户端连接 non security &amp; simple 模式的服务端建立连接。</p>
@@ -390,6 +406,8 @@
     
     
     
+      
+
         
       
 
@@ -423,7 +441,7 @@
 
             <div class="post-nav-prev post-nav-item">
               
-                <a href="/2019/11/27/yarn-limit-user-in-secure-mode/" rel="prev" title="YARN 在 security 集群中使用统一用户运行 Container">
+                <a href="/2019/11/20/yarn-limit-user-in-secure-mode/" rel="prev" title="YARN 在 security 集群中使用统一用户运行 Container">
                   YARN 在 security 集群中使用统一用户运行 Container <i class="fa fa-chevron-right"></i>
                 </a>
               
@@ -639,6 +657,9 @@
 
   
   <script src="/lib/anime.min.js?v=3.1.0"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/pangu@4/dist/browser/pangu.min.js"></script>
   <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
   <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
 <script src="/js/utils.js?v=7.4.2"></script><script src="/js/motion.js?v=7.4.2"></script>

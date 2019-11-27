@@ -20,6 +20,7 @@
 
 
 <link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
 
 <script id="hexo-configurations">
@@ -33,10 +34,10 @@
     copycode: {"enable":true,"show_result":true,"style":"mac"},
     back2top: {"enable":true,"sidebar":true,"scrollpercent":true},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
-    fancybox: false,
+    fancybox: true,
     mediumzoom: false,
     lazyload: false,
-    pangu: false,
+    pangu: true,
     algolia: {
       appID: '',
       apiKey: '',
@@ -60,13 +61,13 @@
 <meta name="keywords" content="Yarn,LinuxContainerExecutor,Security">
 <meta property="og:type" content="article">
 <meta property="og:title" content="YARN 在 security 集群中使用统一用户运行 Container">
-<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;11&#x2F;27&#x2F;yarn-limit-user-in-secure-mode&#x2F;index.html">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;11&#x2F;20&#x2F;yarn-limit-user-in-secure-mode&#x2F;index.html">
 <meta property="og:site_name" content="Smarthan&#39;s Notebook">
 <meta property="og:description" content="在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最原始的 SIMPLE 验证方式已经无法满足需求了，因此，我们决定使用 kerberos, 开启集群的安全验证: Run Hadoop in Secure Mode。在实践中过程中，我们发现在 Secure Mode 时，NM 必须使用 LinuxContainerExecutor，如果使用 De">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-11-26T17:39:27.237Z">
+<meta property="og:updated_time" content="2019-11-27T04:43:21.501Z">
 <meta name="twitter:card" content="summary">
-  <link rel="canonical" href="http://yoursite.com/2019/11/27/yarn-limit-user-in-secure-mode/">
+  <link rel="canonical" href="http://yoursite.com/2019/11/20/yarn-limit-user-in-secure-mode/">
 
 
 <script id="page-configurations">
@@ -130,7 +131,7 @@
         <span class="logo-line-after"><i></i></span>
       </a>
     </div>
-        <p class="site-subtitle">Life is all memory.</p>
+        <h1 class="site-subtitle" itemprop="description">Life is all memory.</h1>
       
   </div>
 
@@ -251,7 +252,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/11/27/yarn-limit-user-in-secure-mode/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/11/20/yarn-limit-user-in-secure-mode/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="smarthan">
@@ -263,13 +264,13 @@
       <meta itemprop="name" content="Smarthan's Notebook">
     </span>
       <header class="post-header">
-        <h1 class="post-title" itemprop="name headline">
+        <h2 class="post-title" itemprop="name headline">
           
             YARN 在 security 集群中使用统一用户运行 Container
             
 
           
-        </h1>
+        </h2>
 
         <div class="post-meta">
             <span class="post-meta-item">
@@ -282,8 +283,20 @@
                 
               
 
-              <time title="创建时间：2019-11-27 01:39:27" itemprop="dateCreated datePublished" datetime="2019-11-27T01:39:27+08:00">2019-11-27</time>
+              <time title="创建时间：2019-11-20 00:00:00" itemprop="dateCreated datePublished" datetime="2019-11-20T00:00:00+08:00">2019-11-20</time>
             </span>
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2019-11-27 12:43:21" itemprop="dateModified" datetime="2019-11-27T12:43:21+08:00">2019-11-27</time>
+              </span>
+            
           
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -382,6 +395,25 @@
     
     
     
+      
+  <div class="popular-posts-header">相关文章</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/2019/10/12/yarn-container-executor/" rel="bookmark">Yarn ContainerExecutor 配置与使用</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/2019/10/20/yarn-cgroup-usage/" rel="bookmark">Yarn 使用 Cgroup 实现任务资源限制</a></div>
+      
+    </li>
+  
+  </ul>
+
         
       
 
@@ -405,7 +437,7 @@
           <div class="post-nav">
             <div class="post-nav-next post-nav-item">
               
-                <a href="/2019/11/26/hdfs-problems-collection/" rel="next" title="HDFS 问题总结">
+                <a href="/2019/11/01/hdfs-problems-collection/" rel="next" title="HDFS 问题总结">
                   <i class="fa fa-chevron-left"></i> HDFS 问题总结
                 </a>
               
@@ -627,6 +659,9 @@
 
   
   <script src="/lib/anime.min.js?v=3.1.0"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/pangu@4/dist/browser/pangu.min.js"></script>
   <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
   <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
 <script src="/js/utils.js?v=7.4.2"></script><script src="/js/motion.js?v=7.4.2"></script>

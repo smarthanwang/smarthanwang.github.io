@@ -20,6 +20,7 @@
 
 
 <link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
 
 <script id="hexo-configurations">
@@ -33,10 +34,10 @@
     copycode: {"enable":true,"show_result":true,"style":"mac"},
     back2top: {"enable":true,"sidebar":true,"scrollpercent":true},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
-    fancybox: false,
+    fancybox: true,
     mediumzoom: false,
     lazyload: false,
-    pangu: false,
+    pangu: true,
     algolia: {
       appID: '',
       apiKey: '',
@@ -129,7 +130,7 @@
         <span class="logo-line-after"><i></i></span>
       </a>
     </div>
-        <p class="site-subtitle">Life is all memory.</p>
+        <h1 class="site-subtitle" itemprop="description">Life is all memory.</h1>
       
   </div>
 
@@ -266,9 +267,9 @@
   <div class="post-block">
     <div class="posts-collapse">
       <div class="collection-title">
-        <h1 class="collection-header">Hadoop-YARN
+        <h2 class="collection-header">Hadoop-YARN
           <small>分类</small>
-        </h1>
+        </h2>
       </div>
 
       
@@ -279,7 +280,7 @@
   
     
     <div class="collection-year">
-      <h1 class="collection-header">2019</h1>
+      <h2 class="collection-header">2019</h2>
     </div>
   
 
@@ -288,19 +289,19 @@
 
       <div class="post-meta">
         <time itemprop="dateCreated"
-              datetime="2019-11-27T01:39:27+08:00"
-              content="2019-11-27">
-          11-27
+              datetime="2019-11-20T00:00:00+08:00"
+              content="2019-11-20">
+          11-20
         </time>
       </div>
 
-      <h2 class="post-title">
+      <h3 class="post-title">
         
-          <a class="post-title-link" href="/2019/11/27/yarn-limit-user-in-secure-mode/" itemprop="url">
+          <a class="post-title-link" href="/2019/11/20/yarn-limit-user-in-secure-mode/" itemprop="url">
             <span itemprop="name">YARN 在 security 集群中使用统一用户运行 Container</span>
           </a>
         
-      </h2>
+      </h3>
 
     </header>
   </article>
@@ -323,13 +324,13 @@
         </time>
       </div>
 
-      <h2 class="post-title">
+      <h3 class="post-title">
         
           <a class="post-title-link" href="/2019/10/20/yarn-cgroup-usage/" itemprop="url">
             <span itemprop="name">Yarn 使用 Cgroup 实现任务资源限制</span>
           </a>
         
-      </h2>
+      </h3>
 
     </header>
   </article>
@@ -352,13 +353,13 @@
         </time>
       </div>
 
-      <h2 class="post-title">
+      <h3 class="post-title">
         
           <a class="post-title-link" href="/2019/10/12/yarn-container-executor/" itemprop="url">
             <span itemprop="name">Yarn ContainerExecutor 配置与使用</span>
           </a>
         
-      </h2>
+      </h3>
 
     </header>
   </article>
@@ -567,6 +568,9 @@
 
   
   <script src="/lib/anime.min.js?v=3.1.0"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/pangu@4/dist/browser/pangu.min.js"></script>
   <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
   <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
 <script src="/js/utils.js?v=7.4.2"></script><script src="/js/motion.js?v=7.4.2"></script>
