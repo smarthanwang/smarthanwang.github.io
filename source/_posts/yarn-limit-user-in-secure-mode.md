@@ -6,6 +6,7 @@ tags:
   - LinuxContainerExecutor
 categories:
   - Hadoop-YARN
+date: 2019-11-20
 ---
 
 在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最原始的 SIMPLE 验证方式已经无法满足需求了，因此，我们决定使用 kerberos, 开启集群的安全验证: Run Hadoop in Secure Mode。
