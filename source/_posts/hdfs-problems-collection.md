@@ -160,3 +160,36 @@ datanode 节点的机架信息代表着 datanode 在集群的网络拓扑结构�
 
 检查 `net.topology.table.file.name` 指定的机架信息配置文件中，新节点的机架信息是否配置了，如果未配置，按照之前的规则添加正确的机架信息，如果配置了，检查是否正确，如果不正确，修正即可。如果是正确的，可能要考虑之前节点的机架信息是否配置上了，很有可能之前的机架信息没有配置正确，用的都是 `/default-rack`
 
+
+## Federation 模式下 Datanode 只服务一组 NameNode
+
+### 异常信息
+
+异常出现在搭建 federation 集群时， format & start 多组 NameNode 后，启动 Datanode 时，发现 Datanode 向多组 NameNode 发起注册请求时，只有一组 NameNode 能够注册成功，其余的注册汇报以下异常：
+
+```
+2019-12-18 18:40:58,192 FATAL org.apache.hadoop.hdfs.server.datanode.DataNode: Initialization failed for Block pool <registering> (Datanode Uuid unassigned) service to master02.highschool.sjs.ted/10.144.104.117
+:8020. Exiting. 
+java.io.IOException: Cluster IDs not matched: dn cid=CID-72c0bfd0-3550-4eb2-97ce-90e46723ddcf but ns cid=CID-232e4ad4-c76d-46a7-b89f-afe8324045cd; bpid=BP-144350400-10.144.104.101-1576662236699
+        at org.apache.hadoop.hdfs.server.datanode.DataNode.setClusterId(DataNode.java:717)
+        at org.apache.hadoop.hdfs.server.datanode.DataNode.initBlockPool(DataNode.java:1383)
+        at org.apache.hadoop.hdfs.server.datanode.BPOfferService.verifyAndSetNamespaceInfo(BPOfferService.java:315)
+        at org.apache.hadoop.hdfs.server.datanode.BPServiceActor.connectToNNAndHandshake(BPServiceActor.java:219)
+        at org.apache.hadoop.hdfs.server.datanode.BPServiceActor.run(BPServiceActor.java:673)
+        at java.lang.Thread.run(Thread.java:748)
+
+```
+
+### 产生原因
+federation 模式下,虽然每组不同的 NameNode 都类似一个单独的小集群，但是 Datanode 启动时只需要一个 clusterid 要求所有 NameNode 都需要保持一个统一的 clusterid，来证明它们属于同一个集群。 clusterid 由格式化 NameNode 时，使用 `hdfs namenode -format -clusterid id` 来指定，如果未指定，直接使用 `hdfs namenode -format` 进行格式化，NameNode 就会随机生成一个 id。federation 模式下，如果每组 NameNode 格式化时都不指定 id，那每组 NameNode 都会生成自己的 clusterid，每组之间都不一致，Datanode 
+
+
+
+### 解决方法
+
+在格式化每一组 NameNode 时，都
+
+```bash
+hdfs namenode -format -clusterid id
+hdfs namenode -bootstrapStandby
+```
