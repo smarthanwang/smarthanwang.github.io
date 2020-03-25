@@ -15,7 +15,7 @@ date: 2019-11-01
 因此，将实际生产环境中 HDFS 集群出现的问题进行总结是有必要的。在本文中，我会把我在集群运维过程遇到的一些有代表性的问题进行总结，包括异常信息，产生原因以及解决办法，以便为后续的运维工作提供一个快速参照，也希望能给大家带来一定的参考。
 
 
-## 文件未正常关闭
+## 1. 文件未正常关闭
 
 ### 异常信息
 
@@ -50,7 +50,7 @@ hdfs fsck -Dfs.defaultFS=hdfs://nameservice:8020/ path -openforwrite
 hdfs debug recoverLease -path openfile -retries 3
 ```
 
-## 安全集群 (kerberos) 无法访问非安全集群
+## 2. 安全集群 (kerberos) 无法访问非安全集群
 
 ### 异常信息
 
@@ -93,7 +93,7 @@ ls: Failed on local exception: java.io.IOException: Server asks us to fall back 
   </property>  
 ```
 
-## datanode 域名无法解析
+## 3. datanode 域名无法解析
 
 ### 异常信息
 
@@ -121,7 +121,7 @@ java.nio.channels.UnresolvedAddressException
 第二种方式是将客户端禁止默认使用域名进行连接，这样客户端就会默认使用节点 ip 进行连接，也就跳过了域名解析的问题。客户端只需要在配置 `dfs.client.use.datanode.hostname=false` 即可，且不需要频繁更改，所以推荐使用这种解决方式。
 
 
-## datanode 注册失败，机架信息异常
+## 4. datanode 注册失败，机架信息异常
 
 ### 异常信息
 
@@ -161,7 +161,7 @@ datanode 节点的机架信息代表着 datanode 在集群的网络拓扑结构�
 检查 `net.topology.table.file.name` 指定的机架信息配置文件中，新节点的机架信息是否配置了，如果未配置，按照之前的规则添加正确的机架信息，如果配置了，检查是否正确，如果不正确，修正即可。如果是正确的，可能要考虑之前节点的机架信息是否配置上了，很有可能之前的机架信息没有配置正确，用的都是 `/default-rack`
 
 
-## Federation 模式下 Datanode 只服务一组 NameNode
+## 5. Federation 模式下 Datanode 只服务一组 NameNode
 
 ### 异常信息
 
@@ -181,15 +181,20 @@ java.io.IOException: Cluster IDs not matched: dn cid=CID-72c0bfd0-3550-4eb2-97ce
 ```
 
 ### 产生原因
-federation 模式下,虽然每组不同的 NameNode 都类似一个单独的小集群，但是 Datanode 启动时只需要一个 clusterid 要求所有 NameNode 都需要保持一个统一的 clusterid，来证明它们属于同一个集群。 clusterid 由格式化 NameNode 时，使用 `hdfs namenode -format -clusterid id` 来指定，如果未指定，直接使用 `hdfs namenode -format` 进行格式化，NameNode 就会随机生成一个 id。federation 模式下，如果每组 NameNode 格式化时都不指定 id，那每组 NameNode 都会生成自己的 clusterid，每组之间都不一致，Datanode 
-
+federation 模式下,*所有 NameService 需要保持一个统一的 clusterid*，来表明它们属于同一个集群。 clusterid 由格式化 NameNode 时，使用 `hdfs namenode -format -clusterid id` 来指定，如果未指定，直接使用 `hdfs namenode -format` 进行格式化，NameNode 就会随机生成一个 id。federation 模式下，如果每组 NameNode 格式化时都不指定 id，那每组 NameService 都会生成自己的 clusterid，进而导致每组之间都不一致。Datanode 初始化 block pool 时，会对比各组 NameService 的 clusterId，如果不一致则会出现该异常。
 
 
 ### 解决方法
 
-在格式化每一组 NameNode 时，都
+在格式化每一组 NameNode 时，都指定统一的 clusterId 。
 
 ```bash
+首先选择一个独一无二 clusterId, 或者在第一组 NameNode 格式化时随机生成一个。
+后续格式化其余组 NameNode 时，都使用 -clusterid id 指定
+
+同一组 NameNode上，第一个 namenode 上使用format 进行格式化
 hdfs namenode -format -clusterid id
+
+第二个是用 bootstrapStandby 同步即可
 hdfs namenode -bootstrapStandby
 ```
