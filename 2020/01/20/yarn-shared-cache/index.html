@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+
+
+
+
+
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.4.2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.4.2">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.4.2">
+  <link rel="mask-icon" href="/images/logo.svg?v=7.4.2" color="#222">
+  <meta name="google-site-verification" content="H5rsP6t3WmCyNG_7CBVrCyBhahTN7rF6n6l6cSro8yA">
+
+<link rel="stylesheet" href="/css/main.css?v=7.4.2">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '7.4.2',
+    exturl: false,
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    copycode: {"enable":true,"show_result":true,"style":"mac"},
+    back2top: {"enable":true,"sidebar":true,"scrollpercent":true},
+    bookmark: {"enable":false,"color":"#222","save":"auto"},
+    fancybox: true,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: true,
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: 'search.xml',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    },
+    sidebarPadding: 40
+  };
+</script>
+
+  <meta name="description" content="Yarn Shared Cache （Yarn 共享缓存服务）是社区 Hadoop 2.9 版本之后上新增的功能，参见YARN-1492，它的目的是提供了一种安全且可扩展的方式向 HDFS 上传和管理应用程序依赖资源，降低 Yarn application 因为依赖资源的上传以及本地化带来的时间消耗。">
+<meta name="keywords" content="Yarn,Yarn Shared Cache,依">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Yarn Shared Cache 功能简介">
+<meta property="og:url" content="https:&#x2F;&#x2F;smarthanwang.github.io&#x2F;2020&#x2F;01&#x2F;20&#x2F;yarn-shared-cache&#x2F;index.html">
+<meta property="og:site_name" content="Smarthan&#39;s Notebook">
+<meta property="og:description" content="Yarn Shared Cache （Yarn 共享缓存服务）是社区 Hadoop 2.9 版本之后上新增的功能，参见YARN-1492，它的目的是提供了一种安全且可扩展的方式向 HDFS 上传和管理应用程序依赖资源，降低 Yarn application 因为依赖资源的上传以及本地化带来的时间消耗。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-25T10:58:02.379Z">
+<meta name="twitter:card" content="summary">
+  <link rel="canonical" href="https://smarthanwang.github.io/2020/01/20/yarn-shared-cache/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true,
+    isPage: false,
+    isArchive: false
+  };
+</script>
+
+  <title>Yarn Shared Cache 功能简介 | Smarthan's Notebook</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Smarthan's Notebook</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <h1 class="site-subtitle" itemprop="description">Life is all memory.</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+      
+      
+        
+        
+        <li class="menu-item menu-item-home">
+      
+    
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-tags">
+      
+    
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-categories">
+      
+    
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-archives">
+      
+    
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+      
+    
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger">
+          <i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+    
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="none"
+           placeholder="搜索..." spellcheck="false"
+           type="text" id="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/smarthanwang" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+            
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://smarthanwang.github.io/2020/01/20/yarn-shared-cache/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="smarthan">
+      <meta itemprop="description" content="keep coding, keep learning">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Smarthan's Notebook">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            Yarn Shared Cache 功能简介
+            
+
+          
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              
+                
+              
+
+              <time title="创建时间：2020-01-20 00:00:00" itemprop="dateCreated datePublished" datetime="2020-01-20T00:00:00+08:00">2020-01-20</time>
+            </span>
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-03-25 18:58:02" itemprop="dateModified" datetime="2020-03-25T18:58:02+08:00">2020-03-25</time>
+              </span>
+            
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Hadoop-YARN/" itemprop="url" rel="index">
+                    <span itemprop="name">Hadoop-YARN</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+          
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">本文字数：</span>
+              
+              <span>5.8k</span>
+            </span>
+          
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              
+              <span>5 分钟</span>
+            </span>
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Yarn Shared Cache （Yarn 共享缓存服务）是社区 Hadoop 2.9 版本之后上新增的功能，参见<a href="https://issues.apache.org/jira/browse/YARN-1492" target="_blank" rel="noopener">YARN-1492</a>，它的目的是提供了一种安全且可扩展的方式向 HDFS 上传和管理应用程序依赖资源，降低 Yarn application 因为依赖资源的上传以及本地化带来的时间消耗。</p><a id="more"></a>
+<p>通过使用 Yarn Shared Cache， 对于相同的依赖资源，YARN application 可以直接使用其他 application 上传的资源或者该 application 的先前运行时自己上传的资源，而无需每次都重新上传以及本地化相同的资源文件，从而节省网络资源并大大减少YARN应用程序启动时间。</p>
+<p>本文主要简单介绍 Yarn Shared Cache 的架构和使用方式，具体官方文档可参见 <a href="https://hadoop.apache.org/docs/r2.9.2/hadoop-yarn/hadoop-yarn-site/SharedCache.html" target="_blank" rel="noopener">SharedCache</a></p>
+<h2 id="架构"><a href="#架构" class="headerlink" title="架构"></a>架构</h2><p>Yarn Shared Cache 主要由4个部分组成:</p>
+<ul>
+<li><strong>Shared Cache Client: 共享缓存客户端</strong><br>主要提供与 SCM 交互的接口，用户或者开发者可以使用 shared cache client 计算资源校验值(checksum)，使用校验值向 SCM 获取共享缓存中该资源的存储路径。</li>
+</ul>
+<ul>
+<li><p><strong>Shared Cache HDFS Directory：共享缓存 HDFS 存储目录</strong><br>共享存储资源全部都存储在指定的 HDFS 目录中，共享缓存目录通过HDFS权限进行保护，并且全局只读，只允许信任用户去写。这个目录只有共享缓存管理过程和在 NM 的 uploader 在上传资源时会修改。资源通过MD5 校验值被分到各个子目录。</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">/sharedcache/a/8/9/a896857d078/foo.jar</span><br><span class="line">/sharedcache/5/0/f/50f11b09f87/bar.jar</span><br><span class="line">/sharedcache/a/6/7/a678cb1aa8f/job.jar</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>Shared Cache Manager (SCM)：共享缓存管理器</strong><br>SCM是一个单独的服务进程，它可以运行在任何节点上。这样，管理员可以在不影响其他组件的同时，启动，停止SCM。 </p>
+<p>它负责处理从客户端以及 uploader 发来的请求，以及管理所有共享的资源。同时负责维护所有存储在 HDFS 目录中的缓存数据以及这些数据的元信息。它由两个主要的组件组成：后端存储服务和缓存清理服务。  </p>
+<p>后端存储服务负责维护和持久化 shared cache 的元数据。包括在缓存中的资源，资源最后一次被使用时间，当前使用资源的应用等信息。目前是使用内存存储，并且在重启后会重建。  </p>
+<p>清理服务负责确保不再使用的资源会被从缓存中移除。它周期性的扫描资源，清理过期的和没有应用使用的资源。 </p>
+</li>
+</ul>
+<ul>
+<li><p><strong>Shared Cache Uploader and Localization：缓存上传以及本地化</strong></p>
+<p> Shared Cache uploader 是一个运行在  NM  上的服务，用来上传资源到共享缓存。它负责确认资源校验值，根据校验值动态确定资源对应的HDFS目录，然后上传资源到该目录中，然后通知 SCM 该资源已经被添加到缓存。</p>
+<p> Shared Cache uploader 是异步的，不会阻塞 yarn应用的启动。</p>
+<p> 一旦资源上传到共享缓存中，Yarn 使用 NM 本地化机制即可使得资源可获得。基于 NM 本地化资源的机制，由于 Shared Cache 中的缓存文件的 HDFS 地址和时间戳一直保持不变，当 NM 本地化过一次该资源后，后续再使用该资源时直接使用本地缓存的资源即可，也不会每次都重新本地化资源。因此，后续依赖于该资源的任务都不需要再次上传和本地化该资源，降低了任务启动时间。</p>
+</li>
+</ul>
+<h2 id="部署"><a href="#部署" class="headerlink" title="部署"></a>部署</h2><h3 id="初始化设置"><a href="#初始化设置" class="headerlink" title="初始化设置"></a>初始化设置</h3><p>管理员需要通过以下几步来初始化设置 Shared Cache</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">1.创建HDFS目录，默认是 /sharecache 可配置</span><br><span class="line">    </span><br><span class="line">    yarn.sharedcache.root-dir=/sharecache </span><br><span class="line">    </span><br><span class="line">2.设置共享缓存目录0755</span><br><span class="line"></span><br><span class="line">    hadoop fs -chmod 755 /sharecache</span><br><span class="line"></span><br><span class="line">3.确认此目录的属主是 SCM 和 NM 的启动用户(yarn) </span><br><span class="line"></span><br><span class="line">    hadoop fs -chown yarn:yarn /sharecache</span><br><span class="line"></span><br><span class="line">4.在yarn-site.xml里面开启 sharedcache 功能</span><br><span class="line"></span><br><span class="line">    yarn.sharedcache.enabled=<span class="literal">true</span></span><br><span class="line">    </span><br><span class="line">5.启动共享缓存管理器</span><br><span class="line"></span><br><span class="line">    yarn --daemon start sharedcachemanager</span><br></pre></td></tr></table></figure>
+
+<h3 id="所有配置选项"><a href="#所有配置选项" class="headerlink" title="所有配置选项"></a>所有配置选项</h3><p>Yarn Shared Cache 所需要的所有配置大致如下：</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>yarn.sharedcache.enabled</td>
+<td>Whether the shared cache is enabled</td>
+<td>false</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.root-dir</td>
+<td>The root directory for the shared cache</td>
+<td>/sharedcache</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.nested-level</td>
+<td>The level of nested directories before getting to the checksum directories. It must be non-negative.</td>
+<td>3</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.store.class</td>
+<td>The implementation to be used for the SCM store</td>
+<td>org.apache.hadoop.yarn.server.sharedcachemanager.store.InMemorySCMStore</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.app-checker.class</td>
+<td>The implementation to be used for the SCM app-checker</td>
+<td>org.apache.hadoop.yarn.server.sharedcachemanager.RemoteAppChecker</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.store.in-memory.staleness-period-mins</td>
+<td>A resource in the in-memory store is considered stale if the time since the last reference exceeds the staleness period. This value is specified in minutes.</td>
+<td>10080</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.store.in-memory.initial-delay-mins</td>
+<td>Initial delay before the in-memory store runs its first check to remove dead initial applications. Specified in minutes.</td>
+<td>10</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.store.in-memory.check-period-mins</td>
+<td>The frequency at which the in-memory store checks to remove dead initial applications. Specified in minutes.</td>
+<td>720</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.admin.thread-count</td>
+<td>The number of threads used to handle SCM admin interface (1 by default)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.cleaner.period-mins</td>
+<td>The frequency at which a cleaner task runs. Specified in minutes.</td>
+<td>1440</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.cleaner.initial-delay-mins</td>
+<td>Initial delay before the first cleaner task is scheduled. Specified in minutes.</td>
+<td>10</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.cleaner.resource-sleep-ms</td>
+<td>The time to sleep between processing each shared cache resource. Specified in milliseconds.</td>
+<td>0</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.uploader.server.thread-count</td>
+<td>The number of threads used to handle shared cache manager requests from the node manager (50 by default)</td>
+<td>50</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.client-server.address</td>
+<td>The address of the client interface in the SCM (shared cache manager)</td>
+<td>0.0.0.0:8045</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.uploader.server.address</td>
+<td>The address of the node manager interface in the SCM (shared cache manager)</td>
+<td>0.0.0.0:8046</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.admin.address</td>
+<td>The address of the admin interface in the SCM (shared cache manager)</td>
+<td>0.0.0.0:8047</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.webapp.address</td>
+<td>The address of the web application in the SCM (shared cache manager)</td>
+<td>0.0.0.0:8788</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.client-server.thread-count</td>
+<td>The number of threads used to handle shared cache manager requests from clients (50 by default)</td>
+<td>50</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.checksum.algo.impl</td>
+<td>The algorithm used to compute checksums of files (SHA-256 by default)</td>
+<td>org.apache.hadoop.yarn.sharedcache.ChecksumSHA256Impl</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.nm.uploader.replication.factor</td>
+<td>The replication factor for the node manager uploader for the shared cache (10 by default)</td>
+<td>10</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.nm.uploader.thread-count</td>
+<td>The number of threads used to upload files from a node manager instance (20 by default)</td>
+<td>20</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.keytab</td>
+<td>keytab for SCM</td>
+<td>required for security cluster</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.principal</td>
+<td>principal for SCM</td>
+<td>required for security cluster</td>
+</tr>
+</tbody></table>
+<h2 id="MR-支持-YARN-Shared-Cache"><a href="#MR-支持-YARN-Shared-Cache" class="headerlink" title="MR 支持 YARN Shared Cache"></a>MR 支持 YARN Shared Cache</h2><p>社区对 MR 任务进行了 YARN Shared Cache 功能支持，通过客户端配置来开启 MR 任务资源直接使用 Yarn Shared Cache进行托管。MR 客户端会优先使用 YARN Shared Cache 托管依赖资源，如果 SCM 服务不可用时，就会回退到原来的上传依赖资源到任务的提交目录的模式。 </p>
+<p>使用主要使用的配置如下。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">description</span>&gt;</span>Whether the shared cache is enabled<span class="tag">&lt;/<span class="name">description</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.sharedcache.enabled<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"> </span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">description</span>&gt;</span>The address of the client interface in the SCM (shared cache manager)<span class="tag">&lt;/<span class="name">description</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.sharedcache.client-server.address<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>shardcache-server-host:8045<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"> </span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.sharedcache.keytab<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>/etc/hadoop/conf/yarn.keytab<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.sharedcache.principal<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>yarn/_HOST@HADOOP.COM<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">name</span>&gt;</span>mapreduce.job.sharedcache.mode<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">value</span>&gt;</span>libjars,files,archives<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">description</span>&gt;</span></span><br><span class="line">         A comma delimited list of resource categories to submit to the</span><br><span class="line">         shared cache. The valid categories are: jobjar, libjars, files,</span><br><span class="line">         archives. If "disabled" is specified then the job submission code</span><br><span class="line">         will not use the shared cache.</span><br><span class="line">      <span class="tag">&lt;/<span class="name">description</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+
+
+
+<h2 id="参考文档"><a href="#参考文档" class="headerlink" title="参考文档"></a>参考文档</h2><ul>
+<li><p><a href="https://hadoop.apache.org/docs/r2.9.2/hadoop-yarn/hadoop-yarn-site/SharedCache.html" target="_blank" rel="noopener">SharedCache</a></p>
+</li>
+<li><p><a href="https://hadoop.apache.org/docs/r3.1.2/hadoop-mapreduce-client/hadoop-mapreduce-client-core/SharedCacheSupport.html" target="_blank" rel="noopener">MR Support for YARN Shared Cache</a></p>
+</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">相关文章</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/2019/10/12/yarn-container-executor/" rel="bookmark">Yarn ContainerExecutor 配置与使用</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/2019/11/20/yarn-limit-user-in-secure-mode/" rel="bookmark">YARN 在 security 集群中使用统一用户运行 Container</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/2019/10/20/yarn-cgroup-usage/" rel="bookmark">Yarn 使用 Cgroup 实现任务资源限制</a></div>
+      
+    </li>
+  
+  </ul>
+
+        
+      
+
+      <footer class="post-footer">
+          
+            
+          
+          <div class="post-tags">
+            
+              <a href="/tags/Yarn/" rel="tag"># Yarn</a>
+            
+              <a href="/tags/Yarn-Shared-Cache/" rel="tag"># Yarn Shared Cache</a>
+            
+              <a href="/tags/%E4%BE%9D/" rel="tag"># 依</a>
+            
+          </div>
+        
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-next post-nav-item">
+              
+                <a href="/2019/12/20/mr-job-submit-optimization/" rel="next" title="MapReduce 任务提交加速">
+                  <i class="fa fa-chevron-left"></i> MapReduce 任务提交加速
+                </a>
+              
+            </div>
+
+            <span class="post-nav-divider"></span>
+
+            <div class="post-nav-prev post-nav-item">
+              
+            </div>
+          </div>
+        
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+        
+        
+        
+        
+      
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#架构"><span class="nav-number">1.</span> <span class="nav-text">架构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#部署"><span class="nav-number">2.</span> <span class="nav-text">部署</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#初始化设置"><span class="nav-number">2.1.</span> <span class="nav-text">初始化设置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#所有配置选项"><span class="nav-number">2.2.</span> <span class="nav-text">所有配置选项</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MR-支持-YARN-Shared-Cache"><span class="nav-number">3.</span> <span class="nav-text">MR 支持 YARN Shared Cache</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文档"><span class="nav-number">4.</span> <span class="nav-text">参考文档</span></a></li></ol></div>
+        
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">smarthan</p>
+  <div class="site-description" itemprop="description">keep coding, keep learning</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">7</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+          
+            <a href="/categories/">
+          
+        
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+          
+            <a href="/tags/">
+          
+        
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">标签</span>
+        </a>
+      </div>
+    
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="https://github.com/smarthanwang" title="GitHub &amp;rarr; https:&#x2F;&#x2F;github.com&#x2F;smarthanwang" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="mailto:smarthanwang@gmail.com" title="E-Mail &amp;rarr; mailto:smarthanwang@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+    
+  </div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">smarthan</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    
+    <span title="站点总字数">29k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    
+    <span title="站点阅读时长">27 分钟</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">
+      
+    主题 – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.4.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+  
+    <span class="post-meta-divider">|</span>
+  
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js?v=3.1.0"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/pangu@4/dist/browser/pangu.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+<script src="/js/utils.js?v=7.4.2"></script><script src="/js/motion.js?v=7.4.2"></script>
+<script src="/js/schemes/pisces.js?v=7.4.2"></script>
+<script src="/js/next-boot.js?v=7.4.2"></script>
+
+
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+
+  <script src="/js/local-search.js?v=7.4.2"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

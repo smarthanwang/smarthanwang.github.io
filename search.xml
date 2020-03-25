@@ -1,6 +1,184 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>Yarn Shared Cache 功能简介</title>
+    <url>/2020/01/20/yarn-shared-cache/</url>
+    <content><![CDATA[<p>Yarn Shared Cache （Yarn 共享缓存服务）是社区 Hadoop 2.9 版本之后上新增的功能，参见<a href="https://issues.apache.org/jira/browse/YARN-1492" target="_blank" rel="noopener">YARN-1492</a>，它的目的是提供了一种安全且可扩展的方式向 HDFS 上传和管理应用程序依赖资源，降低 Yarn application 因为依赖资源的上传以及本地化带来的时间消耗。</p><a id="more"></a>
+<p>通过使用 Yarn Shared Cache， 对于相同的依赖资源，YARN application 可以直接使用其他 application 上传的资源或者该 application 的先前运行时自己上传的资源，而无需每次都重新上传以及本地化相同的资源文件，从而节省网络资源并大大减少YARN应用程序启动时间。</p>
+<p>本文主要简单介绍 Yarn Shared Cache 的架构和使用方式，具体官方文档可参见 <a href="https://hadoop.apache.org/docs/r2.9.2/hadoop-yarn/hadoop-yarn-site/SharedCache.html" target="_blank" rel="noopener">SharedCache</a></p>
+<h2 id="架构"><a href="#架构" class="headerlink" title="架构"></a>架构</h2><p>Yarn Shared Cache 主要由4个部分组成:</p>
+<ul>
+<li><strong>Shared Cache Client: 共享缓存客户端</strong><br>主要提供与 SCM 交互的接口，用户或者开发者可以使用 shared cache client 计算资源校验值(checksum)，使用校验值向 SCM 获取共享缓存中该资源的存储路径。</li>
+</ul>
+<ul>
+<li><p><strong>Shared Cache HDFS Directory：共享缓存 HDFS 存储目录</strong><br>共享存储资源全部都存储在指定的 HDFS 目录中，共享缓存目录通过HDFS权限进行保护，并且全局只读，只允许信任用户去写。这个目录只有共享缓存管理过程和在 NM 的 uploader 在上传资源时会修改。资源通过MD5 校验值被分到各个子目录。</p>
+  <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">/sharedcache/a/8/9/a896857d078/foo.jar</span><br><span class="line">/sharedcache/5/0/f/50f11b09f87/bar.jar</span><br><span class="line">/sharedcache/a/6/7/a678cb1aa8f/job.jar</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>Shared Cache Manager (SCM)：共享缓存管理器</strong><br>SCM是一个单独的服务进程，它可以运行在任何节点上。这样，管理员可以在不影响其他组件的同时，启动，停止SCM。 </p>
+<p>它负责处理从客户端以及 uploader 发来的请求，以及管理所有共享的资源。同时负责维护所有存储在 HDFS 目录中的缓存数据以及这些数据的元信息。它由两个主要的组件组成：后端存储服务和缓存清理服务。  </p>
+<p>后端存储服务负责维护和持久化 shared cache 的元数据。包括在缓存中的资源，资源最后一次被使用时间，当前使用资源的应用等信息。目前是使用内存存储，并且在重启后会重建。  </p>
+<p>清理服务负责确保不再使用的资源会被从缓存中移除。它周期性的扫描资源，清理过期的和没有应用使用的资源。 </p>
+</li>
+</ul>
+<ul>
+<li><p><strong>Shared Cache Uploader and Localization：缓存上传以及本地化</strong></p>
+<p> Shared Cache uploader 是一个运行在  NM  上的服务，用来上传资源到共享缓存。它负责确认资源校验值，根据校验值动态确定资源对应的HDFS目录，然后上传资源到该目录中，然后通知 SCM 该资源已经被添加到缓存。</p>
+<p> Shared Cache uploader 是异步的，不会阻塞 yarn应用的启动。</p>
+<p> 一旦资源上传到共享缓存中，Yarn 使用 NM 本地化机制即可使得资源可获得。基于 NM 本地化资源的机制，由于 Shared Cache 中的缓存文件的 HDFS 地址和时间戳一直保持不变，当 NM 本地化过一次该资源后，后续再使用该资源时直接使用本地缓存的资源即可，也不会每次都重新本地化资源。因此，后续依赖于该资源的任务都不需要再次上传和本地化该资源，降低了任务启动时间。</p>
+</li>
+</ul>
+<h2 id="部署"><a href="#部署" class="headerlink" title="部署"></a>部署</h2><h3 id="初始化设置"><a href="#初始化设置" class="headerlink" title="初始化设置"></a>初始化设置</h3><p>管理员需要通过以下几步来初始化设置 Shared Cache</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">1.创建HDFS目录，默认是 /sharecache 可配置</span><br><span class="line">    </span><br><span class="line">    yarn.sharedcache.root-dir=/sharecache </span><br><span class="line">    </span><br><span class="line">2.设置共享缓存目录0755</span><br><span class="line"></span><br><span class="line">    hadoop fs -chmod 755 /sharecache</span><br><span class="line"></span><br><span class="line">3.确认此目录的属主是 SCM 和 NM 的启动用户(yarn) </span><br><span class="line"></span><br><span class="line">    hadoop fs -chown yarn:yarn /sharecache</span><br><span class="line"></span><br><span class="line">4.在yarn-site.xml里面开启 sharedcache 功能</span><br><span class="line"></span><br><span class="line">    yarn.sharedcache.enabled=<span class="literal">true</span></span><br><span class="line">    </span><br><span class="line">5.启动共享缓存管理器</span><br><span class="line"></span><br><span class="line">    yarn --daemon start sharedcachemanager</span><br></pre></td></tr></table></figure>
+
+<h3 id="所有配置选项"><a href="#所有配置选项" class="headerlink" title="所有配置选项"></a>所有配置选项</h3><p>Yarn Shared Cache 所需要的所有配置大致如下：</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>yarn.sharedcache.enabled</td>
+<td>Whether the shared cache is enabled</td>
+<td>false</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.root-dir</td>
+<td>The root directory for the shared cache</td>
+<td>/sharedcache</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.nested-level</td>
+<td>The level of nested directories before getting to the checksum directories. It must be non-negative.</td>
+<td>3</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.store.class</td>
+<td>The implementation to be used for the SCM store</td>
+<td>org.apache.hadoop.yarn.server.sharedcachemanager.store.InMemorySCMStore</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.app-checker.class</td>
+<td>The implementation to be used for the SCM app-checker</td>
+<td>org.apache.hadoop.yarn.server.sharedcachemanager.RemoteAppChecker</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.store.in-memory.staleness-period-mins</td>
+<td>A resource in the in-memory store is considered stale if the time since the last reference exceeds the staleness period. This value is specified in minutes.</td>
+<td>10080</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.store.in-memory.initial-delay-mins</td>
+<td>Initial delay before the in-memory store runs its first check to remove dead initial applications. Specified in minutes.</td>
+<td>10</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.store.in-memory.check-period-mins</td>
+<td>The frequency at which the in-memory store checks to remove dead initial applications. Specified in minutes.</td>
+<td>720</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.admin.thread-count</td>
+<td>The number of threads used to handle SCM admin interface (1 by default)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.cleaner.period-mins</td>
+<td>The frequency at which a cleaner task runs. Specified in minutes.</td>
+<td>1440</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.cleaner.initial-delay-mins</td>
+<td>Initial delay before the first cleaner task is scheduled. Specified in minutes.</td>
+<td>10</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.cleaner.resource-sleep-ms</td>
+<td>The time to sleep between processing each shared cache resource. Specified in milliseconds.</td>
+<td>0</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.uploader.server.thread-count</td>
+<td>The number of threads used to handle shared cache manager requests from the node manager (50 by default)</td>
+<td>50</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.client-server.address</td>
+<td>The address of the client interface in the SCM (shared cache manager)</td>
+<td>0.0.0.0:8045</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.uploader.server.address</td>
+<td>The address of the node manager interface in the SCM (shared cache manager)</td>
+<td>0.0.0.0:8046</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.admin.address</td>
+<td>The address of the admin interface in the SCM (shared cache manager)</td>
+<td>0.0.0.0:8047</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.webapp.address</td>
+<td>The address of the web application in the SCM (shared cache manager)</td>
+<td>0.0.0.0:8788</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.client-server.thread-count</td>
+<td>The number of threads used to handle shared cache manager requests from clients (50 by default)</td>
+<td>50</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.checksum.algo.impl</td>
+<td>The algorithm used to compute checksums of files (SHA-256 by default)</td>
+<td>org.apache.hadoop.yarn.sharedcache.ChecksumSHA256Impl</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.nm.uploader.replication.factor</td>
+<td>The replication factor for the node manager uploader for the shared cache (10 by default)</td>
+<td>10</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.nm.uploader.thread-count</td>
+<td>The number of threads used to upload files from a node manager instance (20 by default)</td>
+<td>20</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.keytab</td>
+<td>keytab for SCM</td>
+<td>required for security cluster</td>
+</tr>
+<tr>
+<td>yarn.sharedcache.principal</td>
+<td>principal for SCM</td>
+<td>required for security cluster</td>
+</tr>
+</tbody></table>
+<h2 id="MR-支持-YARN-Shared-Cache"><a href="#MR-支持-YARN-Shared-Cache" class="headerlink" title="MR 支持 YARN Shared Cache"></a>MR 支持 YARN Shared Cache</h2><p>社区对 MR 任务进行了 YARN Shared Cache 功能支持，通过客户端配置来开启 MR 任务资源直接使用 Yarn Shared Cache进行托管。MR 客户端会优先使用 YARN Shared Cache 托管依赖资源，如果 SCM 服务不可用时，就会回退到原来的上传依赖资源到任务的提交目录的模式。 </p>
+<p>使用主要使用的配置如下。</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">description</span>&gt;</span>Whether the shared cache is enabled<span class="tag">&lt;/<span class="name">description</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.sharedcache.enabled<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"> </span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">description</span>&gt;</span>The address of the client interface in the SCM (shared cache manager)<span class="tag">&lt;/<span class="name">description</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.sharedcache.client-server.address<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>shardcache-server-host:8045<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"> </span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.sharedcache.keytab<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>/etc/hadoop/conf/yarn.keytab<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.sharedcache.principal<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>yarn/_HOST@HADOOP.COM<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">name</span>&gt;</span>mapreduce.job.sharedcache.mode<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">value</span>&gt;</span>libjars,files,archives<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">description</span>&gt;</span></span><br><span class="line">         A comma delimited list of resource categories to submit to the</span><br><span class="line">         shared cache. The valid categories are: jobjar, libjars, files,</span><br><span class="line">         archives. If "disabled" is specified then the job submission code</span><br><span class="line">         will not use the shared cache.</span><br><span class="line">      <span class="tag">&lt;/<span class="name">description</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+
+
+
+<h2 id="参考文档"><a href="#参考文档" class="headerlink" title="参考文档"></a>参考文档</h2><ul>
+<li><p><a href="https://hadoop.apache.org/docs/r2.9.2/hadoop-yarn/hadoop-yarn-site/SharedCache.html" target="_blank" rel="noopener">SharedCache</a></p>
+</li>
+<li><p><a href="https://hadoop.apache.org/docs/r3.1.2/hadoop-mapreduce-client/hadoop-mapreduce-client-core/SharedCacheSupport.html" target="_blank" rel="noopener">MR Support for YARN Shared Cache</a></p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>Hadoop-YARN</category>
+      </categories>
+      <tags>
+        <tag>Yarn</tag>
+        <tag>Yarn Shared Cache</tag>
+        <tag>依</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>MapReduce 任务提交加速</title>
     <url>/2019/12/20/mr-job-submit-optimization/</url>
     <content><![CDATA[<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>在日常工作中，我们经常遇到一些用户反馈任务提交特别慢，有些任务从运行启动脚本到任务真正提交到 RM 上，需要十几分钟有的甚至需要一个小时以上。分析这些任务我们很容易就发现，这些任务基本上都是因为依赖的本地资源(files, libjars, archives)文件过多或者输入数据过多(split input巨慢)导致的，因此本篇文章主要就是简单分析一下 MR 任务提交过程，然后总结一下加快提交速度的方法。</p><a id="more"></a>
