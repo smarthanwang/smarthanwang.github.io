@@ -1,6 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>MapReduce 任务提交加速</title>
+    <url>/2019/12/20/mr-job-submit-optimization/</url>
+    <content><![CDATA[<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>在日常工作中，我们经常遇到一些用户反馈任务提交特别慢，有些任务从运行启动脚本到任务真正提交到 RM 上，需要十几分钟有的甚至需要一个小时以上。分析这些任务我们很容易就发现，这些任务基本上都是因为依赖的本地资源(files, libjars, archives)文件过多或者输入数据过多(split input巨慢)导致的，因此本篇文章主要就是简单分析一下 MR 任务提交过程，然后总结一下加快提交速度的方法。</p><a id="more"></a>
+<h2 id="MR-任务提交过程"><a href="#MR-任务提交过程" class="headerlink" title="MR 任务提交过程"></a>MR 任务提交过程</h2><p>MRv2 中，任务的提交过程的代码调用路径大致是<br><code>org.apache.hadoop.mapreduce.Job#submit --&gt; org.apache.hadoop.mapreduce.JobSubmitter#submitJobInternal --&gt; org.apache.hadoop.mapred.YARNRunner#submitJob</code>.</p>
+<p>代码的逻辑也比较简单，主要做了以下几件事情：</p>
+<ol>
+<li><p><em>创建 submitDir，上传依赖资源 (files, libjars, archives):</em><br>这部分主要负责将任务在集群上运行时需要的资源文件上传到任务在 HDFS 上的 submitDir，以便于任务在 NM 上启动时，可以从 submitDir 将依赖资源本地化到 NM 上的任务的本地目录中，从而使任务运行时直接可以使用这些依赖资源。<br>因为涉及到写入数据到 HDFS，所以当任务有许多的依赖资源需要上传时，该过程就会变得十分耗时。比如一些机器学习任务，会依赖特定版本的 python，以及一堆的 models 或者框架，上传过程需要将所有的依赖的文件都上传到 summitDir，因此耗时巨长。</p>
+</li>
+<li><p><em>输入数据分片(input split):</em><br>这部分主要是遍历任务的输入目录，将所有输入数据文件按照分片规则进行分片操作，分片完成后将分片结果写入 submitDir，然后根据分片数量确定 map 数量。<br>因为涉及到对于 HDFS 输入路径的遍历访问，所以当输入数据很多时，该过程也会变得非常耗时。</p>
+</li>
+<li><p><em>提交任务到 RM：</em><br>这部分工作就比较简单，主要就是根据客户端配置生成任务提交请求，然后向 RM 发起任务提交。这部分工作比较简单，一般不存在比较耗时的状况。</p>
+</li>
+</ol>
+<h2 id="提交任务加速"><a href="#提交任务加速" class="headerlink" title="提交任务加速"></a>提交任务加速</h2><p>根据任务提交流程分析，我们知道了任务提交慢的原因主要是依赖资源过多或者输入数据过多导致。针对这两种情况，我们可以给出对应的解决方法。</p>
+<h3 id="依赖资源过多"><a href="#依赖资源过多" class="headerlink" title="依赖资源过多"></a>依赖资源过多</h3><p>对于依赖资源过多的问题，优化方法主要有三种。</p>
+<ol>
+<li><p>本地依赖资源统一压缩打包后上传<br>因为依赖资源文件上传 HDFS 是单个文件逐一上传的，依赖文件过多时，就会有许多次文件新建、写入关闭、过程，其中文件的新建和关闭耗费的时间可能比实际数据写入耗时还多。因此，我们可以考虑将所有依赖资源使用 tar 命令压缩打包成一个 tar 包，使用 <code>-archives source.tar.gz</code> 进行上传，从而达到减少文件创建过程，只有文件上传的耗时。</p>
+<p>这种方式会降低一大部分耗时，但是也会带来文件打包的时间消耗，总体耗时降低可能并不太明显。并且NM 本地化时会将 tar 包自动解压成为目录，需要将代码里所有将依赖路径改成 <code>source/path/xxx</code> 这种。因此这种方式只适合任务的依赖资源每次都会变化的任务，对于依赖资源基本不变的任务，可以考虑使用方法2.</p>
+</li>
+</ol>
+<ol start="2">
+<li><p>依赖资源预先上传到 HDFS<br>查看资源上传代码我们发现，任务上传依赖资源时，会检测依赖资源路径是不是 HDFS 路径，如果是就不再上传该资源。所以当我们预先把所有依赖文件预先上传到 HDFS 指定目录，然后在指定依赖文件时直接使用 HDFS 路径 (<code>-archives hdfs://ns1/tmp/archives</code>)时，任务提交时就会跳过该资源上传流程。</p>
+<p>这种方式可以说是一次上传，永远使用。后续任务提交时依赖资源上传流程几乎不存在耗时，能够大大减少依赖资源巨多的任务的提交时间。该方式适合依赖资源基本不变的任务，依赖资源上传后不需要修改。</p>
+</li>
+<li><p>使用 yarn shared cache<br>yarn shared cache 是社区在 2.9 版本后提出的新功能，主要思想是使用单独的服务来托管所有集群任务的依赖资源。对于相同的依赖资源，直接从 shared cache 获取，不需要每次都上传。具体可参见 <a href="yarn-shared-cache">YARN Shared Cache 功能简介</a></p>
+</li>
+</ol>
+<h3 id="输入数据过多"><a href="#输入数据过多" class="headerlink" title="输入数据过多"></a>输入数据过多</h3><p>输入数据过多会导致任务提交过程中需要花费大量时间来遍历输入数据，对输入数据进行分片。</p>
+<p>对于这个问题 <code>FileInputFormat</code> 提供了多线程遍历输入数据的功能，默认使用单个线程，通过配置  <code>mapreduce.input.fileinputformat.list-status.num-threads</code> 来设置文件遍历线程数量可以启用多线程遍历。通过启用多线程遍历，输入数据处理过程时间会成倍数的降低。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>如上述分析，MR 任务提交慢的的原因，要么是依赖资源过多导致上传耗时长，要么是输入数据过多导致输入分片耗时长。所以针对具体任务，我们分析下任务的具体状态，再根据上述的优化方法进行针对话优化即可。</p>
+]]></content>
+      <categories>
+        <category>Hadoop-MapReduce</category>
+      </categories>
+      <tags>
+        <tag>MapReduce</tag>
+        <tag>性能调优</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>YARN 在 security 集群中使用统一用户运行 Container</title>
     <url>/2019/11/20/yarn-limit-user-in-secure-mode/</url>
     <content><![CDATA[<p>在我们的工作过程中，随着业务越来越多，Hadoop 集群规模也越来越大，同时对集群的安全性也越来越高，最原始的 SIMPLE 验证方式已经无法满足需求了，因此，我们决定使用 kerberos, 开启集群的安全验证: Run Hadoop in Secure Mode。</p><p>在实践中过程中，我们发现在 Secure Mode 时，NM 必须使用 LinuxContainerExecutor，如果使用 DefaultContainerExecutor 的话，MR 任务会在 reduce shuffle 阶段失败退出，参见<a href="https://issues.apache.org/jira/browse/YARN-1432" target="_blank" rel="noopener">YARN-1432</a>。同时，LCE 会使用任务提交用户 JobUser 来运行 Container，如果 NM 上不存在 JobUser，任务就会失败退出。 </p><a id="more"></a>
@@ -51,7 +91,7 @@
     <url>/2019/11/01/hdfs-problems-collection/</url>
     <content><![CDATA[<p>在日常维护 HDFS 集群以及为用户提供技术支持时，我们经常会遇到各种 HDFS 相关异常问题，对于一些常见的问题，我们可能知道如何去解决，所以处理起来会比较快。但是当遇到一些不常见的问题时，我们可能没办法根据异常信息直接找到解决方法，可能需要查找一些资料，或者深入源码层面查找问题所在，处理起来比较费时费力，很可能对集群的业务造成影响。</p><a id="more"></a>
 <p>因此，将实际生产环境中 HDFS 集群出现的问题进行总结是有必要的。在本文中，我会把我在集群运维过程遇到的一些有代表性的问题进行总结，包括异常信息，产生原因以及解决办法，以便为后续的运维工作提供一个快速参照，也希望能给大家带来一定的参考。</p>
-<h2 id="文件未正常关闭"><a href="#文件未正常关闭" class="headerlink" title="文件未正常关闭"></a>文件未正常关闭</h2><h3 id="异常信息"><a href="#异常信息" class="headerlink" title="异常信息"></a>异常信息</h3><p>主要异常信息有以下几种：</p>
+<h2 id="1-文件未正常关闭"><a href="#1-文件未正常关闭" class="headerlink" title="1. 文件未正常关闭"></a>1. 文件未正常关闭</h2><h3 id="异常信息"><a href="#异常信息" class="headerlink" title="异常信息"></a>异常信息</h3><p>主要异常信息有以下几种：</p>
 <ul>
 <li><p>Cannot obtain block length<br>出现在读取未正常关闭文件时</p>
 </li>
@@ -63,7 +103,7 @@
 <h3 id="解决方法"><a href="#解决方法" class="headerlink" title="解决方法"></a>解决方法</h3><p>这种情况的解决方案是先找出未正常关闭的文件，然后通过手动释放租约，关闭文件。</p>
 <figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">1. 使用 fsck 找出未正常关闭文件</span><br><span class="line">hdfs fsck path -openforwrite </span><br><span class="line"></span><br><span class="line">对于 federation 集群需要指定 defaultFS</span><br><span class="line">hdfs fsck -Dfs.defaultFS=hdfs://nameservice:8020/ path -openforwrite </span><br><span class="line"></span><br><span class="line"></span><br><span class="line">2. 手动释放租约</span><br><span class="line">hdfs debug recoverLease -path openfile -retries 3</span><br></pre></td></tr></table></figure>
 
-<h2 id="安全集群-kerberos-无法访问非安全集群"><a href="#安全集群-kerberos-无法访问非安全集群" class="headerlink" title="安全集群 (kerberos) 无法访问非安全集群"></a>安全集群 (kerberos) 无法访问非安全集群</h2><h3 id="异常信息-1"><a href="#异常信息-1" class="headerlink" title="异常信息"></a>异常信息</h3><p>HDFS 支持使用 kerberos 认证作为用户权限校验工具，开启的集群的 security 模式。 安全模式的配置大致为</p>
+<h2 id="2-安全集群-kerberos-无法访问非安全集群"><a href="#2-安全集群-kerberos-无法访问非安全集群" class="headerlink" title="2. 安全集群 (kerberos) 无法访问非安全集群"></a>2. 安全集群 (kerberos) 无法访问非安全集群</h2><h3 id="异常信息-1"><a href="#异常信息-1" class="headerlink" title="异常信息"></a>异常信息</h3><p>HDFS 支持使用 kerberos 认证作为用户权限校验工具，开启的集群的 security 模式。 安全模式的配置大致为</p>
 <figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>hadoop.security.authentication<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>kerberos<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>hadoop.security.authorization<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
 
 <p>当 security 集群 客户端通过指定 namenode 地址访问另一个 non security 的的集群时会有以下报错：</p>
@@ -73,7 +113,7 @@
 <h3 id="解决方式"><a href="#解决方式" class="headerlink" title="解决方式"></a>解决方式</h3><p>解决方法是在客户端添加配置，允许 security 的客户端连接 non security &amp; simple 模式的服务端建立连接。</p>
 <figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span>   </span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>ipc.client.fallback-to-simple-auth-allowed<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
 
-<h2 id="datanode-域名无法解析"><a href="#datanode-域名无法解析" class="headerlink" title="datanode 域名无法解析"></a>datanode 域名无法解析</h2><h3 id="异常信息-2"><a href="#异常信息-2" class="headerlink" title="异常信息"></a>异常信息</h3><p>在客户端读写 HDFS 数据的时候，有时会出现以下的异常</p>
+<h2 id="3-datanode-域名无法解析"><a href="#3-datanode-域名无法解析" class="headerlink" title="3. datanode 域名无法解析"></a>3. datanode 域名无法解析</h2><h3 id="异常信息-2"><a href="#异常信息-2" class="headerlink" title="异常信息"></a>异常信息</h3><p>在客户端读写 HDFS 数据的时候，有时会出现以下的异常</p>
 <figure class="highlight java"><table><tr><td class="code"><pre><span class="line">java.nio.channels.UnresolvedAddressException</span><br><span class="line">	at sun.nio.ch.Net.checkAddress(Net.java:<span class="number">101</span>)</span><br><span class="line">	at sun.nio.ch.SocketChannelImpl.connect(SocketChannelImpl.java:<span class="number">622</span>)</span><br><span class="line">	at org.apache.hadoop.net.SocketIOWithTimeout.connect(SocketIOWithTimeout.java:<span class="number">192</span>)</span><br><span class="line">	at org.apache.hadoop.net.NetUtils.connect(NetUtils.java:<span class="number">530</span>)</span><br></pre></td></tr></table></figure>
 
 <h3 id="产生原因-2"><a href="#产生原因-2" class="headerlink" title="产生原因"></a>产生原因</h3><p>当客户端向 HDFS 发起读写请求时，NameNode 会根据目标文件的 block 存储位置返回一组相应的 datanode 节点给客户端，默认状况下，客户端根据返回的 datanode 的域名和端口信息，发起 socket 连接，进行数据读写。</p>
@@ -81,7 +121,7 @@
 <h3 id="解决方法-1"><a href="#解决方法-1" class="headerlink" title="解决方法"></a>解决方法</h3><p>这种状况的解决方式有两种：  </p>
 <p>首先第一种就是跟集群上的 datanode 节点一样，将所有的节点域名映射添加到 /etc/hosts 里，这种方式比较笨，而且难以维护，必须要跟这集群节点信息的更新而更新，所以不建议这样解决。</p>
 <p>第二种方式是将客户端禁止默认使用域名进行连接，这样客户端就会默认使用节点 ip 进行连接，也就跳过了域名解析的问题。客户端只需要在配置 <code>dfs.client.use.datanode.hostname=false</code> 即可，且不需要频繁更改，所以推荐使用这种解决方式。</p>
-<h2 id="datanode-注册失败，机架信息异常"><a href="#datanode-注册失败，机架信息异常" class="headerlink" title="datanode 注册失败，机架信息异常"></a>datanode 注册失败，机架信息异常</h2><h3 id="异常信息-3"><a href="#异常信息-3" class="headerlink" title="异常信息"></a>异常信息</h3><p>当集群新增 datanode 节点，启动时无法向 NN 成功注册，异常信息如下</p>
+<h2 id="4-datanode-注册失败，机架信息异常"><a href="#4-datanode-注册失败，机架信息异常" class="headerlink" title="4. datanode 注册失败，机架信息异常"></a>4. datanode 注册失败，机架信息异常</h2><h3 id="异常信息-3"><a href="#异常信息-3" class="headerlink" title="异常信息"></a>异常信息</h3><p>当集群新增 datanode 节点，启动时无法向 NN 成功注册，异常信息如下</p>
 <p>NN 端 异常：</p>
 <figure class="highlight java"><table><tr><td class="code"><pre><span class="line">org.apache.hadoop.net.NetworkTopology: Error: can<span class="string">'t add leaf node /J/HD-1100/10.140.49.36:50010 at depth 3 to topology:</span></span><br><span class="line"><span class="string">org.apache.hadoop.net.NetworkTopology$InvalidTopologyException: Failed to add /J/HD-1164/10.140.83.70:50010: You cannot have a rack and a non-rack node at the same level of the network topology.</span></span><br><span class="line"><span class="string">	at org.apache.hadoop.net.NetworkTopology.add(NetworkTopology.java:415)</span></span><br><span class="line"><span class="string">	at org.apache.hadoop.hdfs.server.blockmanagement.DatanodeManager.registerDatanode(DatanodeManager.java:980)</span></span><br><span class="line"><span class="string">    ...</span></span><br></pre></td></tr></table></figure>
 
@@ -93,6 +133,12 @@
 <p>通过追踪 datanode 注册模块的代码，我们发现该异常产生原因是 Namenode 通过配置 <code>net.topology.table.file.name</code> 指定的节点机架信息配置文件来维护所有节点的机架信息。如果配置文件中不存在某个节点的机架信息，该节点的机架信息就为默认的 <code>/default-rack</code> ， NN 使用机架信息中的 ‘/‘ 数量来标识机架信息的深度。<strong>最为重要的，一个集群只允许有一种深度的机架信息，所以新增的 datanode 的机架深度必须跟已有的机架信息深度完全一致。</strong> </p>
 <p>所以，当新增节点的机架信息与原来节点机架信息深度不一致时，就会出现此异常。具体可能是新增节点未配置机架信息，使用的 <code>/default-rack</code> 与原来节点不一致，也可能是配置时，配置的机架深度与原来节点不一致。</p>
 <h3 id="解决方式-1"><a href="#解决方式-1" class="headerlink" title="解决方式"></a>解决方式</h3><p>检查 <code>net.topology.table.file.name</code> 指定的机架信息配置文件中，新节点的机架信息是否配置了，如果未配置，按照之前的规则添加正确的机架信息，如果配置了，检查是否正确，如果不正确，修正即可。如果是正确的，可能要考虑之前节点的机架信息是否配置上了，很有可能之前的机架信息没有配置正确，用的都是 <code>/default-rack</code></p>
+<h2 id="5-Federation-模式下-Datanode-只服务一组-NameNode"><a href="#5-Federation-模式下-Datanode-只服务一组-NameNode" class="headerlink" title="5. Federation 模式下 Datanode 只服务一组 NameNode"></a>5. Federation 模式下 Datanode 只服务一组 NameNode</h2><h3 id="异常信息-4"><a href="#异常信息-4" class="headerlink" title="异常信息"></a>异常信息</h3><p>异常出现在搭建 federation 集群时， format &amp; start 多组 NameNode 后，启动 Datanode 时，发现 Datanode 向多组 NameNode 发起注册请求时，只有一组 NameNode 能够注册成功，其余的注册汇报以下异常：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">2019-12-18 18:40:58,192 FATAL org.apache.hadoop.hdfs.server.datanode.DataNode: Initialization failed for Block pool &lt;registering&gt; (Datanode Uuid unassigned) service to master02.highschool.sjs.ted/10.144.104.117</span><br><span class="line">:8020. Exiting. </span><br><span class="line">java.io.IOException: Cluster IDs not matched: dn cid=CID-72c0bfd0-3550-4eb2-97ce-90e46723ddcf but ns cid=CID-232e4ad4-c76d-46a7-b89f-afe8324045cd; bpid=BP-144350400-10.144.104.101-1576662236699</span><br><span class="line">        at org.apache.hadoop.hdfs.server.datanode.DataNode.setClusterId(DataNode.java:717)</span><br><span class="line">        at org.apache.hadoop.hdfs.server.datanode.DataNode.initBlockPool(DataNode.java:1383)</span><br><span class="line">        at org.apache.hadoop.hdfs.server.datanode.BPOfferService.verifyAndSetNamespaceInfo(BPOfferService.java:315)</span><br><span class="line">        at org.apache.hadoop.hdfs.server.datanode.BPServiceActor.connectToNNAndHandshake(BPServiceActor.java:219)</span><br><span class="line">        at org.apache.hadoop.hdfs.server.datanode.BPServiceActor.run(BPServiceActor.java:673)</span><br><span class="line">        at java.lang.Thread.run(Thread.java:748)</span><br></pre></td></tr></table></figure>
+
+<h3 id="产生原因-4"><a href="#产生原因-4" class="headerlink" title="产生原因"></a>产生原因</h3><p>federation 模式下,<em>所有 NameService 需要保持一个统一的 clusterid</em>，来表明它们属于同一个集群。 clusterid 由格式化 NameNode 时，使用 <code>hdfs namenode -format -clusterid id</code> 来指定，如果未指定，直接使用 <code>hdfs namenode -format</code> 进行格式化，NameNode 就会随机生成一个 id。federation 模式下，如果每组 NameNode 格式化时都不指定 id，那每组 NameService 都会生成自己的 clusterid，进而导致每组之间都不一致。Datanode 初始化 block pool 时，会对比各组 NameService 的 clusterId，如果不一致则会出现该异常。</p>
+<h3 id="解决方法-2"><a href="#解决方法-2" class="headerlink" title="解决方法"></a>解决方法</h3><p>在格式化每一组 NameNode 时，都指定统一的 clusterId 。</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">首先选择一个独一无二 clusterId, 或者在第一组 NameNode 格式化时随机生成一个。</span><br><span class="line">后续格式化其余组 NameNode 时，都使用 -clusterid id 指定</span><br><span class="line"></span><br><span class="line">同一组 NameNode上，第一个 namenode 上使用format 进行格式化</span><br><span class="line">hdfs namenode -format -clusterid id</span><br><span class="line"></span><br><span class="line">第二个是用 bootstrapStandby 同步即可</span><br><span class="line">hdfs namenode -bootstrapStandby</span><br></pre></td></tr></table></figure>
 ]]></content>
       <categories>
         <category>Hadoop-HDFS</category>
@@ -213,8 +259,8 @@
   <entry>
     <title>写在最开始的话</title>
     <url>/2019/10/08/hello-world/</url>
-    <content><![CDATA[<p>懒了这么久，终于还是下定决心开始写博客了。</p>
-<p>博客的内容主要就是总结一下日常工作和学习中遇到的知识点和经验，将自己的技能点记录沉淀下来，也能更好的鞭策自己不断前行。</p>
+    <content><![CDATA[<p>懒了这么久，终于还是下定决心开始写博客了。</p><p>博客的内容主要就是总结一下日常工作和学习中遇到的知识点和经验。目前而言，主要包括基于 Hadoop 生态的大数据开发相关的技术。写博客的主要目的是想将自己的技术栈以博客的形式记录沉淀下来，希望通过写博客的方式将接触到知识点梳理的更加清晰，加深自己的理解，找出自身的不足，更好的鞭策自己不断前行，进而达到提升自我的目的。 如果同时能给有想要了解相关知识的朋友们带来一点点帮助，那就更好不过了。</p><a id="more"></a>
+
 <p>九层之台，起于累土，千里之行，始于足下。希望自己能坚持下来。</p>
 <p>Keep coding, keep learning.</p>
 ]]></content>

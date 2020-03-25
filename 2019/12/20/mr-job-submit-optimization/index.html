@@ -57,17 +57,17 @@
   };
 </script>
 
-  <meta name="description" content="懒了这么久，终于还是下定决心开始写博客了。博客的内容主要就是总结一下日常工作和学习中遇到的知识点和经验。目前而言，主要包括基于 Hadoop 生态的大数据开发相关的技术。写博客的主要目的是想将自己的技术栈以博客的形式记录沉淀下来，希望通过写博客的方式将接触到知识点梳理的更加清晰，加深自己的理解，找出自身的不足，更好的鞭策自己不断前行，进而达到提升自我的目的。 如果同时能给有想要了解相关知识的朋友们">
-<meta name="keywords" content="big-data hadoop hdfs yarn mapreduce">
+  <meta name="description" content="概述在日常工作中，我们经常遇到一些用户反馈任务提交特别慢，有些任务从运行启动脚本到任务真正提交到 RM 上，需要十几分钟有的甚至需要一个小时以上。分析这些任务我们很容易就发现，这些任务基本上都是因为依赖的本地资源(files, libjars, archives)文件过多或者输入数据过多(split input巨慢)导致的，因此本篇文章主要就是简单分析一下 MR 任务提交过程，然后总结一下加快提交">
+<meta name="keywords" content="MapReduce,性能调优">
 <meta property="og:type" content="article">
-<meta property="og:title" content="写在最开始的话">
-<meta property="og:url" content="https:&#x2F;&#x2F;smarthanwang.github.io&#x2F;2019&#x2F;10&#x2F;08&#x2F;hello-world&#x2F;index.html">
+<meta property="og:title" content="MapReduce 任务提交加速">
+<meta property="og:url" content="https:&#x2F;&#x2F;smarthanwang.github.io&#x2F;2019&#x2F;12&#x2F;20&#x2F;mr-job-submit-optimization&#x2F;index.html">
 <meta property="og:site_name" content="Smarthan&#39;s Notebook">
-<meta property="og:description" content="懒了这么久，终于还是下定决心开始写博客了。博客的内容主要就是总结一下日常工作和学习中遇到的知识点和经验。目前而言，主要包括基于 Hadoop 生态的大数据开发相关的技术。写博客的主要目的是想将自己的技术栈以博客的形式记录沉淀下来，希望通过写博客的方式将接触到知识点梳理的更加清晰，加深自己的理解，找出自身的不足，更好的鞭策自己不断前行，进而达到提升自我的目的。 如果同时能给有想要了解相关知识的朋友们">
+<meta property="og:description" content="概述在日常工作中，我们经常遇到一些用户反馈任务提交特别慢，有些任务从运行启动脚本到任务真正提交到 RM 上，需要十几分钟有的甚至需要一个小时以上。分析这些任务我们很容易就发现，这些任务基本上都是因为依赖的本地资源(files, libjars, archives)文件过多或者输入数据过多(split input巨慢)导致的，因此本篇文章主要就是简单分析一下 MR 任务提交过程，然后总结一下加快提交">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-25T08:06:29.377Z">
+<meta property="og:updated_time" content="2020-03-25T10:16:06.697Z">
 <meta name="twitter:card" content="summary">
-  <link rel="canonical" href="https://smarthanwang.github.io/2019/10/08/hello-world/">
+  <link rel="canonical" href="https://smarthanwang.github.io/2019/12/20/mr-job-submit-optimization/">
 
 
 <script id="page-configurations">
@@ -81,7 +81,7 @@
   };
 </script>
 
-  <title>写在最开始的话 | Smarthan's Notebook</title>
+  <title>MapReduce 任务提交加速 | Smarthan's Notebook</title>
   
 
 
@@ -252,7 +252,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://smarthanwang.github.io/2019/10/08/hello-world/">
+    <link itemprop="mainEntityOfPage" href="https://smarthanwang.github.io/2019/12/20/mr-job-submit-optimization/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="smarthan">
@@ -266,7 +266,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            写在最开始的话
+            MapReduce 任务提交加速
             
 
           
@@ -283,7 +283,7 @@
                 
               
 
-              <time title="创建时间：2019-10-08 00:00:00" itemprop="dateCreated datePublished" datetime="2019-10-08T00:00:00+08:00">2019-10-08</time>
+              <time title="创建时间：2019-12-20 00:00:00" itemprop="dateCreated datePublished" datetime="2019-12-20T00:00:00+08:00">2019-12-20</time>
             </span>
           
             
@@ -294,7 +294,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020-03-25 16:06:29" itemprop="dateModified" datetime="2020-03-25T16:06:29+08:00">2020-03-25</time>
+                <time title="修改时间：2020-03-25 18:16:06" itemprop="dateModified" datetime="2020-03-25T18:16:06+08:00">2020-03-25</time>
               </span>
             
           
@@ -305,8 +305,8 @@
               <span class="post-meta-item-text">分类于</span>
               
                 <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E5%85%B6%E4%BB%96/" itemprop="url" rel="index">
-                    <span itemprop="name">其他</span>
+                  <a href="/categories/Hadoop-MapReduce/" itemprop="url" rel="index">
+                    <span itemprop="name">Hadoop-MapReduce</span>
                   </a>
                 </span>
 
@@ -333,7 +333,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>267</span>
+              <span>2k</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -343,7 +343,7 @@
               
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
               
-              <span>1 分钟</span>
+              <span>2 分钟</span>
             </span>
           
 
@@ -356,10 +356,34 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>懒了这么久，终于还是下定决心开始写博客了。</p><p>博客的内容主要就是总结一下日常工作和学习中遇到的知识点和经验。目前而言，主要包括基于 Hadoop 生态的大数据开发相关的技术。写博客的主要目的是想将自己的技术栈以博客的形式记录沉淀下来，希望通过写博客的方式将接触到知识点梳理的更加清晰，加深自己的理解，找出自身的不足，更好的鞭策自己不断前行，进而达到提升自我的目的。 如果同时能给有想要了解相关知识的朋友们带来一点点帮助，那就更好不过了。</p><a id="more"></a>
-
-<p>九层之台，起于累土，千里之行，始于足下。希望自己能坚持下来。</p>
-<p>Keep coding, keep learning.</p>
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>在日常工作中，我们经常遇到一些用户反馈任务提交特别慢，有些任务从运行启动脚本到任务真正提交到 RM 上，需要十几分钟有的甚至需要一个小时以上。分析这些任务我们很容易就发现，这些任务基本上都是因为依赖的本地资源(files, libjars, archives)文件过多或者输入数据过多(split input巨慢)导致的，因此本篇文章主要就是简单分析一下 MR 任务提交过程，然后总结一下加快提交速度的方法。</p><a id="more"></a>
+<h2 id="MR-任务提交过程"><a href="#MR-任务提交过程" class="headerlink" title="MR 任务提交过程"></a>MR 任务提交过程</h2><p>MRv2 中，任务的提交过程的代码调用路径大致是<br><code>org.apache.hadoop.mapreduce.Job#submit --&gt; org.apache.hadoop.mapreduce.JobSubmitter#submitJobInternal --&gt; org.apache.hadoop.mapred.YARNRunner#submitJob</code>.</p>
+<p>代码的逻辑也比较简单，主要做了以下几件事情：</p>
+<ol>
+<li><p><em>创建 submitDir，上传依赖资源 (files, libjars, archives):</em><br>这部分主要负责将任务在集群上运行时需要的资源文件上传到任务在 HDFS 上的 submitDir，以便于任务在 NM 上启动时，可以从 submitDir 将依赖资源本地化到 NM 上的任务的本地目录中，从而使任务运行时直接可以使用这些依赖资源。<br>因为涉及到写入数据到 HDFS，所以当任务有许多的依赖资源需要上传时，该过程就会变得十分耗时。比如一些机器学习任务，会依赖特定版本的 python，以及一堆的 models 或者框架，上传过程需要将所有的依赖的文件都上传到 summitDir，因此耗时巨长。</p>
+</li>
+<li><p><em>输入数据分片(input split):</em><br>这部分主要是遍历任务的输入目录，将所有输入数据文件按照分片规则进行分片操作，分片完成后将分片结果写入 submitDir，然后根据分片数量确定 map 数量。<br>因为涉及到对于 HDFS 输入路径的遍历访问，所以当输入数据很多时，该过程也会变得非常耗时。</p>
+</li>
+<li><p><em>提交任务到 RM：</em><br>这部分工作就比较简单，主要就是根据客户端配置生成任务提交请求，然后向 RM 发起任务提交。这部分工作比较简单，一般不存在比较耗时的状况。</p>
+</li>
+</ol>
+<h2 id="提交任务加速"><a href="#提交任务加速" class="headerlink" title="提交任务加速"></a>提交任务加速</h2><p>根据任务提交流程分析，我们知道了任务提交慢的原因主要是依赖资源过多或者输入数据过多导致。针对这两种情况，我们可以给出对应的解决方法。</p>
+<h3 id="依赖资源过多"><a href="#依赖资源过多" class="headerlink" title="依赖资源过多"></a>依赖资源过多</h3><p>对于依赖资源过多的问题，优化方法主要有三种。</p>
+<ol>
+<li><p>本地依赖资源统一压缩打包后上传<br>因为依赖资源文件上传 HDFS 是单个文件逐一上传的，依赖文件过多时，就会有许多次文件新建、写入关闭、过程，其中文件的新建和关闭耗费的时间可能比实际数据写入耗时还多。因此，我们可以考虑将所有依赖资源使用 tar 命令压缩打包成一个 tar 包，使用 <code>-archives source.tar.gz</code> 进行上传，从而达到减少文件创建过程，只有文件上传的耗时。</p>
+<p>这种方式会降低一大部分耗时，但是也会带来文件打包的时间消耗，总体耗时降低可能并不太明显。并且NM 本地化时会将 tar 包自动解压成为目录，需要将代码里所有将依赖路径改成 <code>source/path/xxx</code> 这种。因此这种方式只适合任务的依赖资源每次都会变化的任务，对于依赖资源基本不变的任务，可以考虑使用方法2.</p>
+</li>
+</ol>
+<ol start="2">
+<li><p>依赖资源预先上传到 HDFS<br>查看资源上传代码我们发现，任务上传依赖资源时，会检测依赖资源路径是不是 HDFS 路径，如果是就不再上传该资源。所以当我们预先把所有依赖文件预先上传到 HDFS 指定目录，然后在指定依赖文件时直接使用 HDFS 路径 (<code>-archives hdfs://ns1/tmp/archives</code>)时，任务提交时就会跳过该资源上传流程。</p>
+<p>这种方式可以说是一次上传，永远使用。后续任务提交时依赖资源上传流程几乎不存在耗时，能够大大减少依赖资源巨多的任务的提交时间。该方式适合依赖资源基本不变的任务，依赖资源上传后不需要修改。</p>
+</li>
+<li><p>使用 yarn shared cache<br>yarn shared cache 是社区在 2.9 版本后提出的新功能，主要思想是使用单独的服务来托管所有集群任务的依赖资源。对于相同的依赖资源，直接从 shared cache 获取，不需要每次都上传。具体可参见 <a href="yarn-shared-cache">YARN Shared Cache 功能简介</a></p>
+</li>
+</ol>
+<h3 id="输入数据过多"><a href="#输入数据过多" class="headerlink" title="输入数据过多"></a>输入数据过多</h3><p>输入数据过多会导致任务提交过程中需要花费大量时间来遍历输入数据，对输入数据进行分片。</p>
+<p>对于这个问题 <code>FileInputFormat</code> 提供了多线程遍历输入数据的功能，默认使用单个线程，通过配置  <code>mapreduce.input.fileinputformat.list-status.num-threads</code> 来设置文件遍历线程数量可以启用多线程遍历。通过启用多线程遍历，输入数据处理过程时间会成倍数的降低。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>如上述分析，MR 任务提交慢的的原因，要么是依赖资源过多导致上传耗时长，要么是输入数据过多导致输入分片耗时长。所以针对具体任务，我们分析下任务的具体状态，再根据上述的优化方法进行针对话优化即可。</p>
 
     </div>
 
@@ -372,21 +396,32 @@
       
 
       <footer class="post-footer">
+          
+            
+          
+          <div class="post-tags">
+            
+              <a href="/tags/MapReduce/" rel="tag"># MapReduce</a>
+            
+              <a href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag"># 性能调优</a>
+            
+          </div>
+        
 
         
 
           <div class="post-nav">
             <div class="post-nav-next post-nav-item">
               
+                <a href="/2019/11/20/yarn-limit-user-in-secure-mode/" rel="next" title="YARN 在 security 集群中使用统一用户运行 Container">
+                  <i class="fa fa-chevron-left"></i> YARN 在 security 集群中使用统一用户运行 Container
+                </a>
+              
             </div>
 
             <span class="post-nav-divider"></span>
 
             <div class="post-nav-prev post-nav-item">
-              
-                <a href="/2019/10/12/yarn-container-executor/" rel="prev" title="Yarn ContainerExecutor 配置与使用">
-                  Yarn ContainerExecutor 配置与使用 <i class="fa fa-chevron-right"></i>
-                </a>
               
             </div>
           </div>
@@ -432,6 +467,8 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#概述"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MR-任务提交过程"><span class="nav-number">2.</span> <span class="nav-text">MR 任务提交过程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#提交任务加速"><span class="nav-number">3.</span> <span class="nav-text">提交任务加速</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#依赖资源过多"><span class="nav-number">3.1.</span> <span class="nav-text">依赖资源过多</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#输入数据过多"><span class="nav-number">3.2.</span> <span class="nav-text">输入数据过多</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        
       </div>
       <!--/noindex-->
 

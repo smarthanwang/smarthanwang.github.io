@@ -65,7 +65,7 @@
 <meta property="og:site_name" content="Smarthan&#39;s Notebook">
 <meta property="og:description" content="在日常维护 HDFS 集群以及为用户提供技术支持时，我们经常会遇到各种 HDFS 相关异常问题，对于一些常见的问题，我们可能知道如何去解决，所以处理起来会比较快。但是当遇到一些不常见的问题时，我们可能没办法根据异常信息直接找到解决方法，可能需要查找一些资料，或者深入源码层面查找问题所在，处理起来比较费时费力，很可能对集群的业务造成影响。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-11-27T04:42:44.189Z">
+<meta property="og:updated_time" content="2020-03-25T10:16:06.697Z">
 <meta name="twitter:card" content="summary">
   <link rel="canonical" href="https://smarthanwang.github.io/2019/11/01/hdfs-problems-collection/">
 
@@ -294,7 +294,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019-11-27 12:42:44" itemprop="dateModified" datetime="2019-11-27T12:42:44+08:00">2019-11-27</time>
+                <time title="修改时间：2020-03-25 18:16:06" itemprop="dateModified" datetime="2020-03-25T18:16:06+08:00">2020-03-25</time>
               </span>
             
           
@@ -333,7 +333,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>4.6k</span>
+              <span>6.3k</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -343,7 +343,7 @@
               
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
               
-              <span>4 分钟</span>
+              <span>6 分钟</span>
             </span>
           
 
@@ -358,7 +358,7 @@
       
         <p>在日常维护 HDFS 集群以及为用户提供技术支持时，我们经常会遇到各种 HDFS 相关异常问题，对于一些常见的问题，我们可能知道如何去解决，所以处理起来会比较快。但是当遇到一些不常见的问题时，我们可能没办法根据异常信息直接找到解决方法，可能需要查找一些资料，或者深入源码层面查找问题所在，处理起来比较费时费力，很可能对集群的业务造成影响。</p><a id="more"></a>
 <p>因此，将实际生产环境中 HDFS 集群出现的问题进行总结是有必要的。在本文中，我会把我在集群运维过程遇到的一些有代表性的问题进行总结，包括异常信息，产生原因以及解决办法，以便为后续的运维工作提供一个快速参照，也希望能给大家带来一定的参考。</p>
-<h2 id="文件未正常关闭"><a href="#文件未正常关闭" class="headerlink" title="文件未正常关闭"></a>文件未正常关闭</h2><h3 id="异常信息"><a href="#异常信息" class="headerlink" title="异常信息"></a>异常信息</h3><p>主要异常信息有以下几种：</p>
+<h2 id="1-文件未正常关闭"><a href="#1-文件未正常关闭" class="headerlink" title="1. 文件未正常关闭"></a>1. 文件未正常关闭</h2><h3 id="异常信息"><a href="#异常信息" class="headerlink" title="异常信息"></a>异常信息</h3><p>主要异常信息有以下几种：</p>
 <ul>
 <li><p>Cannot obtain block length<br>出现在读取未正常关闭文件时</p>
 </li>
@@ -370,7 +370,7 @@
 <h3 id="解决方法"><a href="#解决方法" class="headerlink" title="解决方法"></a>解决方法</h3><p>这种情况的解决方案是先找出未正常关闭的文件，然后通过手动释放租约，关闭文件。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">1. 使用 fsck 找出未正常关闭文件</span><br><span class="line">hdfs fsck path -openforwrite </span><br><span class="line"></span><br><span class="line">对于 federation 集群需要指定 defaultFS</span><br><span class="line">hdfs fsck -Dfs.defaultFS=hdfs://nameservice:8020/ path -openforwrite </span><br><span class="line"></span><br><span class="line"></span><br><span class="line">2. 手动释放租约</span><br><span class="line">hdfs debug recoverLease -path openfile -retries 3</span><br></pre></td></tr></table></figure>
 
-<h2 id="安全集群-kerberos-无法访问非安全集群"><a href="#安全集群-kerberos-无法访问非安全集群" class="headerlink" title="安全集群 (kerberos) 无法访问非安全集群"></a>安全集群 (kerberos) 无法访问非安全集群</h2><h3 id="异常信息-1"><a href="#异常信息-1" class="headerlink" title="异常信息"></a>异常信息</h3><p>HDFS 支持使用 kerberos 认证作为用户权限校验工具，开启的集群的 security 模式。 安全模式的配置大致为</p>
+<h2 id="2-安全集群-kerberos-无法访问非安全集群"><a href="#2-安全集群-kerberos-无法访问非安全集群" class="headerlink" title="2. 安全集群 (kerberos) 无法访问非安全集群"></a>2. 安全集群 (kerberos) 无法访问非安全集群</h2><h3 id="异常信息-1"><a href="#异常信息-1" class="headerlink" title="异常信息"></a>异常信息</h3><p>HDFS 支持使用 kerberos 认证作为用户权限校验工具，开启的集群的 security 模式。 安全模式的配置大致为</p>
 <figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>hadoop.security.authentication<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>kerberos<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>hadoop.security.authorization<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
 
 <p>当 security 集群 客户端通过指定 namenode 地址访问另一个 non security 的的集群时会有以下报错：</p>
@@ -380,7 +380,7 @@
 <h3 id="解决方式"><a href="#解决方式" class="headerlink" title="解决方式"></a>解决方式</h3><p>解决方法是在客户端添加配置，允许 security 的客户端连接 non security &amp; simple 模式的服务端建立连接。</p>
 <figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span>   </span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>ipc.client.fallback-to-simple-auth-allowed<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
 
-<h2 id="datanode-域名无法解析"><a href="#datanode-域名无法解析" class="headerlink" title="datanode 域名无法解析"></a>datanode 域名无法解析</h2><h3 id="异常信息-2"><a href="#异常信息-2" class="headerlink" title="异常信息"></a>异常信息</h3><p>在客户端读写 HDFS 数据的时候，有时会出现以下的异常</p>
+<h2 id="3-datanode-域名无法解析"><a href="#3-datanode-域名无法解析" class="headerlink" title="3. datanode 域名无法解析"></a>3. datanode 域名无法解析</h2><h3 id="异常信息-2"><a href="#异常信息-2" class="headerlink" title="异常信息"></a>异常信息</h3><p>在客户端读写 HDFS 数据的时候，有时会出现以下的异常</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">java.nio.channels.UnresolvedAddressException</span><br><span class="line">	at sun.nio.ch.Net.checkAddress(Net.java:<span class="number">101</span>)</span><br><span class="line">	at sun.nio.ch.SocketChannelImpl.connect(SocketChannelImpl.java:<span class="number">622</span>)</span><br><span class="line">	at org.apache.hadoop.net.SocketIOWithTimeout.connect(SocketIOWithTimeout.java:<span class="number">192</span>)</span><br><span class="line">	at org.apache.hadoop.net.NetUtils.connect(NetUtils.java:<span class="number">530</span>)</span><br></pre></td></tr></table></figure>
 
 <h3 id="产生原因-2"><a href="#产生原因-2" class="headerlink" title="产生原因"></a>产生原因</h3><p>当客户端向 HDFS 发起读写请求时，NameNode 会根据目标文件的 block 存储位置返回一组相应的 datanode 节点给客户端，默认状况下，客户端根据返回的 datanode 的域名和端口信息，发起 socket 连接，进行数据读写。</p>
@@ -388,7 +388,7 @@
 <h3 id="解决方法-1"><a href="#解决方法-1" class="headerlink" title="解决方法"></a>解决方法</h3><p>这种状况的解决方式有两种：  </p>
 <p>首先第一种就是跟集群上的 datanode 节点一样，将所有的节点域名映射添加到 /etc/hosts 里，这种方式比较笨，而且难以维护，必须要跟这集群节点信息的更新而更新，所以不建议这样解决。</p>
 <p>第二种方式是将客户端禁止默认使用域名进行连接，这样客户端就会默认使用节点 ip 进行连接，也就跳过了域名解析的问题。客户端只需要在配置 <code>dfs.client.use.datanode.hostname=false</code> 即可，且不需要频繁更改，所以推荐使用这种解决方式。</p>
-<h2 id="datanode-注册失败，机架信息异常"><a href="#datanode-注册失败，机架信息异常" class="headerlink" title="datanode 注册失败，机架信息异常"></a>datanode 注册失败，机架信息异常</h2><h3 id="异常信息-3"><a href="#异常信息-3" class="headerlink" title="异常信息"></a>异常信息</h3><p>当集群新增 datanode 节点，启动时无法向 NN 成功注册，异常信息如下</p>
+<h2 id="4-datanode-注册失败，机架信息异常"><a href="#4-datanode-注册失败，机架信息异常" class="headerlink" title="4. datanode 注册失败，机架信息异常"></a>4. datanode 注册失败，机架信息异常</h2><h3 id="异常信息-3"><a href="#异常信息-3" class="headerlink" title="异常信息"></a>异常信息</h3><p>当集群新增 datanode 节点，启动时无法向 NN 成功注册，异常信息如下</p>
 <p>NN 端 异常：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">org.apache.hadoop.net.NetworkTopology: Error: can<span class="string">'t add leaf node /J/HD-1100/10.140.49.36:50010 at depth 3 to topology:</span></span><br><span class="line"><span class="string">org.apache.hadoop.net.NetworkTopology$InvalidTopologyException: Failed to add /J/HD-1164/10.140.83.70:50010: You cannot have a rack and a non-rack node at the same level of the network topology.</span></span><br><span class="line"><span class="string">	at org.apache.hadoop.net.NetworkTopology.add(NetworkTopology.java:415)</span></span><br><span class="line"><span class="string">	at org.apache.hadoop.hdfs.server.blockmanagement.DatanodeManager.registerDatanode(DatanodeManager.java:980)</span></span><br><span class="line"><span class="string">    ...</span></span><br></pre></td></tr></table></figure>
 
@@ -400,6 +400,12 @@
 <p>通过追踪 datanode 注册模块的代码，我们发现该异常产生原因是 Namenode 通过配置 <code>net.topology.table.file.name</code> 指定的节点机架信息配置文件来维护所有节点的机架信息。如果配置文件中不存在某个节点的机架信息，该节点的机架信息就为默认的 <code>/default-rack</code> ， NN 使用机架信息中的 ‘/‘ 数量来标识机架信息的深度。<strong>最为重要的，一个集群只允许有一种深度的机架信息，所以新增的 datanode 的机架深度必须跟已有的机架信息深度完全一致。</strong> </p>
 <p>所以，当新增节点的机架信息与原来节点机架信息深度不一致时，就会出现此异常。具体可能是新增节点未配置机架信息，使用的 <code>/default-rack</code> 与原来节点不一致，也可能是配置时，配置的机架深度与原来节点不一致。</p>
 <h3 id="解决方式-1"><a href="#解决方式-1" class="headerlink" title="解决方式"></a>解决方式</h3><p>检查 <code>net.topology.table.file.name</code> 指定的机架信息配置文件中，新节点的机架信息是否配置了，如果未配置，按照之前的规则添加正确的机架信息，如果配置了，检查是否正确，如果不正确，修正即可。如果是正确的，可能要考虑之前节点的机架信息是否配置上了，很有可能之前的机架信息没有配置正确，用的都是 <code>/default-rack</code></p>
+<h2 id="5-Federation-模式下-Datanode-只服务一组-NameNode"><a href="#5-Federation-模式下-Datanode-只服务一组-NameNode" class="headerlink" title="5. Federation 模式下 Datanode 只服务一组 NameNode"></a>5. Federation 模式下 Datanode 只服务一组 NameNode</h2><h3 id="异常信息-4"><a href="#异常信息-4" class="headerlink" title="异常信息"></a>异常信息</h3><p>异常出现在搭建 federation 集群时， format &amp; start 多组 NameNode 后，启动 Datanode 时，发现 Datanode 向多组 NameNode 发起注册请求时，只有一组 NameNode 能够注册成功，其余的注册汇报以下异常：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">2019-12-18 18:40:58,192 FATAL org.apache.hadoop.hdfs.server.datanode.DataNode: Initialization failed for Block pool &lt;registering&gt; (Datanode Uuid unassigned) service to master02.highschool.sjs.ted/10.144.104.117</span><br><span class="line">:8020. Exiting. </span><br><span class="line">java.io.IOException: Cluster IDs not matched: dn cid=CID-72c0bfd0-3550-4eb2-97ce-90e46723ddcf but ns cid=CID-232e4ad4-c76d-46a7-b89f-afe8324045cd; bpid=BP-144350400-10.144.104.101-1576662236699</span><br><span class="line">        at org.apache.hadoop.hdfs.server.datanode.DataNode.setClusterId(DataNode.java:717)</span><br><span class="line">        at org.apache.hadoop.hdfs.server.datanode.DataNode.initBlockPool(DataNode.java:1383)</span><br><span class="line">        at org.apache.hadoop.hdfs.server.datanode.BPOfferService.verifyAndSetNamespaceInfo(BPOfferService.java:315)</span><br><span class="line">        at org.apache.hadoop.hdfs.server.datanode.BPServiceActor.connectToNNAndHandshake(BPServiceActor.java:219)</span><br><span class="line">        at org.apache.hadoop.hdfs.server.datanode.BPServiceActor.run(BPServiceActor.java:673)</span><br><span class="line">        at java.lang.Thread.run(Thread.java:748)</span><br></pre></td></tr></table></figure>
+
+<h3 id="产生原因-4"><a href="#产生原因-4" class="headerlink" title="产生原因"></a>产生原因</h3><p>federation 模式下,<em>所有 NameService 需要保持一个统一的 clusterid</em>，来表明它们属于同一个集群。 clusterid 由格式化 NameNode 时，使用 <code>hdfs namenode -format -clusterid id</code> 来指定，如果未指定，直接使用 <code>hdfs namenode -format</code> 进行格式化，NameNode 就会随机生成一个 id。federation 模式下，如果每组 NameNode 格式化时都不指定 id，那每组 NameService 都会生成自己的 clusterid，进而导致每组之间都不一致。Datanode 初始化 block pool 时，会对比各组 NameService 的 clusterId，如果不一致则会出现该异常。</p>
+<h3 id="解决方法-2"><a href="#解决方法-2" class="headerlink" title="解决方法"></a>解决方法</h3><p>在格式化每一组 NameNode 时，都指定统一的 clusterId 。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">首先选择一个独一无二 clusterId, 或者在第一组 NameNode 格式化时随机生成一个。</span><br><span class="line">后续格式化其余组 NameNode 时，都使用 -clusterid id 指定</span><br><span class="line"></span><br><span class="line">同一组 NameNode上，第一个 namenode 上使用format 进行格式化</span><br><span class="line">hdfs namenode -format -clusterid id</span><br><span class="line"></span><br><span class="line">第二个是用 bootstrapStandby 同步即可</span><br><span class="line">hdfs namenode -bootstrapStandby</span><br></pre></td></tr></table></figure>
 
     </div>
 
@@ -489,7 +495,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#文件未正常关闭"><span class="nav-number">1.</span> <span class="nav-text">文件未正常关闭</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#异常信息"><span class="nav-number">1.1.</span> <span class="nav-text">异常信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#产生原因"><span class="nav-number">1.2.</span> <span class="nav-text">产生原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决方法"><span class="nav-number">1.3.</span> <span class="nav-text">解决方法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安全集群-kerberos-无法访问非安全集群"><span class="nav-number">2.</span> <span class="nav-text">安全集群 (kerberos) 无法访问非安全集群</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#异常信息-1"><span class="nav-number">2.1.</span> <span class="nav-text">异常信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#产生原因-1"><span class="nav-number">2.2.</span> <span class="nav-text">产生原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决方式"><span class="nav-number">2.3.</span> <span class="nav-text">解决方式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#datanode-域名无法解析"><span class="nav-number">3.</span> <span class="nav-text">datanode 域名无法解析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#异常信息-2"><span class="nav-number">3.1.</span> <span class="nav-text">异常信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#产生原因-2"><span class="nav-number">3.2.</span> <span class="nav-text">产生原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决方法-1"><span class="nav-number">3.3.</span> <span class="nav-text">解决方法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#datanode-注册失败，机架信息异常"><span class="nav-number">4.</span> <span class="nav-text">datanode 注册失败，机架信息异常</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#异常信息-3"><span class="nav-number">4.1.</span> <span class="nav-text">异常信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#产生原因-3"><span class="nav-number">4.2.</span> <span class="nav-text">产生原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决方式-1"><span class="nav-number">4.3.</span> <span class="nav-text">解决方式</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-文件未正常关闭"><span class="nav-number">1.</span> <span class="nav-text">1. 文件未正常关闭</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#异常信息"><span class="nav-number">1.1.</span> <span class="nav-text">异常信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#产生原因"><span class="nav-number">1.2.</span> <span class="nav-text">产生原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决方法"><span class="nav-number">1.3.</span> <span class="nav-text">解决方法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-安全集群-kerberos-无法访问非安全集群"><span class="nav-number">2.</span> <span class="nav-text">2. 安全集群 (kerberos) 无法访问非安全集群</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#异常信息-1"><span class="nav-number">2.1.</span> <span class="nav-text">异常信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#产生原因-1"><span class="nav-number">2.2.</span> <span class="nav-text">产生原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决方式"><span class="nav-number">2.3.</span> <span class="nav-text">解决方式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-datanode-域名无法解析"><span class="nav-number">3.</span> <span class="nav-text">3. datanode 域名无法解析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#异常信息-2"><span class="nav-number">3.1.</span> <span class="nav-text">异常信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#产生原因-2"><span class="nav-number">3.2.</span> <span class="nav-text">产生原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决方法-1"><span class="nav-number">3.3.</span> <span class="nav-text">解决方法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-datanode-注册失败，机架信息异常"><span class="nav-number">4.</span> <span class="nav-text">4. datanode 注册失败，机架信息异常</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#异常信息-3"><span class="nav-number">4.1.</span> <span class="nav-text">异常信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#产生原因-3"><span class="nav-number">4.2.</span> <span class="nav-text">产生原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决方式-1"><span class="nav-number">4.3.</span> <span class="nav-text">解决方式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-Federation-模式下-Datanode-只服务一组-NameNode"><span class="nav-number">5.</span> <span class="nav-text">5. Federation 模式下 Datanode 只服务一组 NameNode</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#异常信息-4"><span class="nav-number">5.1.</span> <span class="nav-text">异常信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#产生原因-4"><span class="nav-number">5.2.</span> <span class="nav-text">产生原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决方法-2"><span class="nav-number">5.3.</span> <span class="nav-text">解决方法</span></a></li></ol></li></ol></div>
         
       </div>
       <!--/noindex-->
@@ -505,7 +511,7 @@
         
           <a href="/archives/">
         
-          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-count">6</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -518,7 +524,7 @@
             <a href="/categories/">
           
         
-        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-count">4</span>
         <span class="site-state-item-name">分类</span>
         </a>
       </div>
@@ -531,7 +537,7 @@
             <a href="/tags/">
           
         
-        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-count">11</span>
         <span class="site-state-item-name">标签</span>
         </a>
       </div>
@@ -586,7 +592,7 @@
 
 <div class="copyright">
   &copy; 
-  <span itemprop="copyrightYear">2019</span>
+  <span itemprop="copyrightYear">2020</span>
   <span class="with-love">
     <i class="fa fa-user"></i>
   </span>
@@ -597,14 +603,14 @@
     </span>
       <span class="post-meta-item-text">站点总字数：</span>
     
-    <span title="站点总字数">20k</span>
+    <span title="站点总字数">23k</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
       <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
     
-    <span title="站点阅读时长">18 分钟</span>
+    <span title="站点阅读时长">21 分钟</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
   </div>
