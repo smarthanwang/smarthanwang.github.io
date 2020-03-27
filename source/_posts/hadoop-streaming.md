@@ -28,7 +28,7 @@ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \
 
 以一个没有 reduce 阶段的 Streaming 程序为例，其 Mapper 简要运行流程可见下图：
 
-![Hadoop Streaming Mapper 运行流程](hadoop-streaming/hadoop-streaming.jpg)
+![Hadoop Streaming Mapper 运行流程](hadoop-streaming.jpg)
 
 
 PipeMapper 在启动 `mapper.sh` 后， 不断重复 2-7 （一次 map ）过程，直到所有数据处理完成。
@@ -61,36 +61,38 @@ hadoop command [genericOptions] [streamingOptions]
 ### Streaming 参数配置
 
 Streaming 命令参数配置具体如下表所示：
-| 参数 | 必选 | 意义 |
-| ---- | ---- | ---- |
-|-input   directoryname or filename |是|	设置输入数据路径，可以是文件或者目录。可通过重复配置，添加多个输入路径|
-|-output  directoryname             |是|	设置指定输出数据路径，必须是目录。输出路径只能有一个|
-|-mapper  executable or JavaClassName |是|	设置可执行的 mapper|
-|-reducer executable or JavaClassName |是|	设置可执行的 reducer|
-|-file filename |否|	设置需要同步到计算节点的文件，可以使可执行的 mapper，reducer 或 combiner 文件在计算节点本地可用。可以通过重复配置，同步多个文件|
-|-inputformat JavaClassName	|否|设置 InputFormat，用来将输入文件读取成 key/value 对，如果未设置默认使用 TextInputFormat |
-|-outputformat JavaClassName|	否|	设置 OutputFormat，用来将输出的 key/value 对写出到输出文件，如果未设置默认使用 TextOutputFormat|
-|-partitioner JavaClassName	|否|	设置 Partitioner， 用来根据 key 确定数据应该指派到的 reduce|
-|-combiner streamingCommand or JavaClassName	|否| 设置 Combiner，用来在 mapper 端归并 mapper 的输出|
-|-cmdenv name=value	|否| 设置环境变量，可以在 mapper 或者 reducer 运行时获取|
-|-inputreader	|否|	设置 InputReader 类，用于读取输入数据，取代 InputFormat Class|
-|-verbose	|否|	设置是否输出日志|
-|-lazyOutput	|否|	设置是否延迟输出|
-|-numReduceTasks    |否|	设置 reducer 任务数量|
-|-mapdebug	|否|	设置 mapper debug 脚本，在 mapper 任务运行失败时执行|
-|-reducedebug	|否|	设置 reducer debug 脚本， reducer 任务运行失败时执行|
+
+参数 | 必选 | 意义
+ --- | --- | ---
+-input   directoryname or filename |是|	设置输入数据路径，可以是文件或者目录。可通过重复配置，添加多个输入路径
+-output  directoryname             |是|	设置指定输出数据路径，必须是目录。输出路径只能有一个
+-mapper  executable or JavaClassName |是|	设置可执行的 mapper
+-reducer executable or JavaClassName |是|	设置可执行的 reducer
+-file filename |否|	设置需要同步到计算节点的文件，可以使可执行的 mapper，reducer 或 combiner 文件在计算节点本地可用。可以通过重复配置，同步多个文件
+-inputformat JavaClassName	|否|设置 InputFormat，用来将输入文件读取成 key/value 对，如果未设置默认使用 TextInputFormat 
+-outputformat JavaClassName|	否|	设置 OutputFormat，用来将输出的 key/value 对写出到输出文件，如果未设置默认使用 TextOutputFormat
+-partitioner JavaClassName	|否|	设置 Partitioner， 用来根据 key 确定数据应该指派到的 reduce
+-combiner streamingCommand or JavaClassName	|否| 设置 Combiner，用来在 mapper 端归并 mapper 的输出
+-cmdenv name=value	|否| 设置环境变量，可以在 mapper 或者 reducer 运行时获取
+-inputreader	|否|	设置 InputReader 类，用于读取输入数据，取代 InputFormat Class
+-verbose	|否|	设置是否输出日志
+-lazyOutput	|否|	设置是否延迟输出
+-numReduceTasks    |否|	设置 reducer 任务数量
+-mapdebug	|否|	设置 mapper debug 脚本，在 mapper 任务运行失败时执行
+-reducedebug	|否|	设置 reducer debug 脚本， reducer 任务运行失败时执行
 
 ### 通用参数配置
 
 Streaming 任务同时支持 Hadoop 通用的参数配置，主要的参数配置有以下几个：
-| 参数 | 必选 | 意义 |
-| ---- | ---- | ---- |
-|-conf configuration_file |否|	指定配置文件|
-|-D property=value |否|	设置参数的值|
-|-fs host:port or local |否|   指定一个 namenode|
-|-files |否|	指定需要拷贝到集群的文件，多个文件以逗号分隔|
-|-libjars |否|  指定需要添加到任务 classpath 的 jar 文件，多个文件以逗号分隔|
-|-archives |否| 指定需要解压到计算节点的压缩文件，多个文件以逗号分隔|
+
+ 参数 | 必选 | 意义 
+--- | ---| ---
+-conf configuration_file |否|	指定配置文件
+-D property=value |否|	设置参数的值
+-fs host:port or local |否|   指定一个 namenode
+-files |否|	指定需要拷贝到集群的文件，多个文件以逗号分隔
+-libjars |否|  指定需要添加到任务 classpath 的 jar 文件，多个文件以逗号分隔
+-archives |否| 指定需要解压到计算节点的压缩文件，多个文件以逗号分隔
 
 ### 参数配置示例
 下面我们通过一些示例来展示具体的 Streaming 任务参数配置。

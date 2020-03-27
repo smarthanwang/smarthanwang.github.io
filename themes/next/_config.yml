@@ -448,7 +448,7 @@ font:
   global:
     external: true
     family: Lato
-    size:
+    size: .85
 
   # Font settings for site title (.site-title).
   title:
@@ -466,6 +466,7 @@ font:
   posts:
     external: true
     family:
+    size: .85
 
   # Font settings for <code> and code blocks.
   codes:
@@ -788,13 +789,13 @@ busuanzi_count:
   post_views: true
   post_views_icon: eye
   site_uv: true
-  site_uv_header: 本站访客数
+  site_uv_header: 访客数
   site_uv_footer: 人次
   site_pv: true
-  site_pv_header: 本站总访问量
+  site_pv_header: 总访问量
   site_pv_footer: 次
   page_pv: true
-  page_pv_header: 本文总阅读量
+  page_pv_header: 本文阅读量
   page_pv_footer: 次
 
 # Tencent analytics
