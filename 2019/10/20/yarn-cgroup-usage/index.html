@@ -57,15 +57,15 @@
   };
 </script>
 
-  <meta name="description" content="概述Linux CGroup 全称是 Linux Control Group，是 Linux 内核提供的一个用来限制进程资源使用的功能，支持如 CPU, 内存，磁盘 IO 等资源的使用限制。用户可以使用 CGroup 对单个进程或者一组进程进行精细化的资源限制，具体使用方式可以查看参考文档。目前， Yarn NodeManager 能够使用 CGroup 来限制所有 containers 的资源使">
+  <meta name="description" content="Linux CGroup 全称是 Linux Control Group，是 Linux 内核提供的一个用来限制进程资源使用的功能，支持如 CPU, 内存，磁盘 IO 等资源的使用限制。用户可以使用 CGroup 对单个进程或者一组进程进行精细化的资源限制，具体使用方式可以查看参考文档。目前， Yarn NodeManager 能够使用 CGroup 来限制所有 containers 的资源使用，">
 <meta name="keywords" content="Yarn,Cgroup,资源限制">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Yarn 使用 Cgroup 实现任务资源限制">
 <meta property="og:url" content="https:&#x2F;&#x2F;smarthanwang.github.io&#x2F;2019&#x2F;10&#x2F;20&#x2F;yarn-cgroup-usage&#x2F;index.html">
 <meta property="og:site_name" content="Smarthan&#39;s Notebook">
-<meta property="og:description" content="概述Linux CGroup 全称是 Linux Control Group，是 Linux 内核提供的一个用来限制进程资源使用的功能，支持如 CPU, 内存，磁盘 IO 等资源的使用限制。用户可以使用 CGroup 对单个进程或者一组进程进行精细化的资源限制，具体使用方式可以查看参考文档。目前， Yarn NodeManager 能够使用 CGroup 来限制所有 containers 的资源使">
+<meta property="og:description" content="Linux CGroup 全称是 Linux Control Group，是 Linux 内核提供的一个用来限制进程资源使用的功能，支持如 CPU, 内存，磁盘 IO 等资源的使用限制。用户可以使用 CGroup 对单个进程或者一组进程进行精细化的资源限制，具体使用方式可以查看参考文档。目前， Yarn NodeManager 能够使用 CGroup 来限制所有 containers 的资源使用，">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-11-26T15:04:27.013Z">
+<meta property="og:updated_time" content="2020-03-27T10:05:48.272Z">
 <meta name="twitter:card" content="summary">
   <link rel="canonical" href="https://smarthanwang.github.io/2019/10/20/yarn-cgroup-usage/">
 
@@ -294,7 +294,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019-11-26 23:04:27" itemprop="dateModified" datetime="2019-11-26T23:04:27+08:00">2019-11-26</time>
+                <time title="修改时间：2020-03-27 18:05:48" itemprop="dateModified" datetime="2020-03-27T18:05:48+08:00">2020-03-27</time>
               </span>
             
           
@@ -356,7 +356,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>Linux CGroup 全称是 Linux Control Group，是 Linux 内核提供的一个用来限制进程资源使用的功能，支持如 CPU, 内存，磁盘 IO 等资源的使用限制。用户可以使用 CGroup 对单个进程或者一组进程进行精细化的资源限制，具体使用方式可以查看参考文档。</p><p>目前， Yarn NodeManager 能够使用 CGroup 来限制所有 containers 的资源使用，主要是 CPU 资源。如果不用 CGroup， 在 NM 端很难实现对 container 的 CPU 使用进行限制。默认状态下， container 的 CPU 使用是没有限制的，container 申请了 1 vcore ，实际上能够使用所有的 CPU 资源。所以如果 NM 上分配了一个 vcore 申请较少实际上 CPU 使用极高的任务，常常会导致节点上运行的所有的任务都延时。</p><a id="more"></a>
+        <p>Linux CGroup 全称是 Linux Control Group，是 Linux 内核提供的一个用来限制进程资源使用的功能，支持如 CPU, 内存，磁盘 IO 等资源的使用限制。用户可以使用 CGroup 对单个进程或者一组进程进行精细化的资源限制，具体使用方式可以查看参考文档。</p><p>目前， Yarn NodeManager 能够使用 CGroup 来限制所有 containers 的资源使用，主要是 CPU 资源。如果不用 CGroup， 在 NM 端很难实现对 container 的 CPU 使用进行限制。默认状态下， container 的 CPU 使用是没有限制的，container 申请了 1 vcore ，实际上能够使用所有的 CPU 资源。所以如果 NM 上分配了一个 vcore 申请较少实际上 CPU 使用极高的任务，常常会导致节点上运行的所有的任务都延时。</p><a id="more"></a>
 
 <p>NM 运行时，可以通过 ContainersMonitor 线程监控 container 内存和 CPU 使用。对于 container 内存使用， 一旦发现其超出申请内存大小，就会立即发起 kill container 命令，回收 container 的资源。ContainersMonitor 虽然也支持 CPU 使用监控，但是 CPU 资源不像内存资源，其使用量的峰值是基本上可以确定的，在所有机器或者系统上都基本一致。 CPU 受限于 CPU 硬件性能， 同一个任务在不同的机器上的 CPU 使用率可能差异巨大，所以不能发现 container CPU 使用超过申请大小就 kill container 。同时，由于 container 都是由子进程的方式启动的， NM 也是很难通过直接控制 container 运行和暂停来调整其 CPU 使用率。 因此，在没有 CGroup 功能的情况下， NM 是很难直接限制 container 的 CPU 使用的。</p>
 <p>所以接下来我们主要介绍 Yarn 如何启用 CGroup 来限制 containers CPU 资源占用。</p>
@@ -499,7 +499,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#概述"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#启用"><span class="nav-number">2.</span> <span class="nav-text">启用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-启用-LCE-："><span class="nav-number">2.1.</span> <span class="nav-text">1. 启用 LCE ：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-启用-CGroup-："><span class="nav-number">2.2.</span> <span class="nav-text">2. 启用 CGroup ：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-配置-Yarn-CGroup-目录："><span class="nav-number">2.3.</span> <span class="nav-text">3. 配置 Yarn CGroup 目录：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-CPU-资源限制："><span class="nav-number">2.4.</span> <span class="nav-text">4. CPU 资源限制：</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#注意事项"><span class="nav-number">3.</span> <span class="nav-text">注意事项</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文档"><span class="nav-number">4.</span> <span class="nav-text">参考文档</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#启用"><span class="nav-number">1.</span> <span class="nav-text">启用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-启用-LCE-："><span class="nav-number">1.1.</span> <span class="nav-text">1. 启用 LCE ：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-启用-CGroup-："><span class="nav-number">1.2.</span> <span class="nav-text">2. 启用 CGroup ：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-配置-Yarn-CGroup-目录："><span class="nav-number">1.3.</span> <span class="nav-text">3. 配置 Yarn CGroup 目录：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-CPU-资源限制："><span class="nav-number">1.4.</span> <span class="nav-text">4. CPU 资源限制：</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#注意事项"><span class="nav-number">2.</span> <span class="nav-text">注意事项</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文档"><span class="nav-number">3.</span> <span class="nav-text">参考文档</span></a></li></ol></div>
         
       </div>
       <!--/noindex-->
@@ -515,7 +515,7 @@
         
           <a href="/archives/">
         
-          <span class="site-state-item-count">7</span>
+          <span class="site-state-item-count">8</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -607,14 +607,14 @@
     </span>
       <span class="post-meta-item-text">站点总字数：</span>
     
-    <span title="站点总字数">29k</span>
+    <span title="站点总字数">35k</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
       <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
     
-    <span title="站点阅读时长">27 分钟</span>
+    <span title="站点阅读时长">31 分钟</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
   </div>

@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+
+
+
+
+
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.4.2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.4.2">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.4.2">
+  <link rel="mask-icon" href="/images/logo.svg?v=7.4.2" color="#222">
+  <meta name="google-site-verification" content="H5rsP6t3WmCyNG_7CBVrCyBhahTN7rF6n6l6cSro8yA">
+
+<link rel="stylesheet" href="/css/main.css?v=7.4.2">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '7.4.2',
+    exturl: false,
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    copycode: {"enable":true,"show_result":true,"style":"mac"},
+    back2top: {"enable":true,"sidebar":true,"scrollpercent":true},
+    bookmark: {"enable":false,"color":"#222","save":"auto"},
+    fancybox: true,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: true,
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: 'search.xml',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    },
+    sidebarPadding: 40
+  };
+</script>
+
+  <meta name="description" content="Hadoop Streaming 是 Hadoop 提供的一个工具， 用户可以使用它来创建和运行一类特殊的 MapReduce 任务， 这些 MR 任务可以使用任何可执行文件或脚本作为 mapper 和 reducer。比如，简单的 word count 任务可使用 Hadoop Streaming 简单写为：">
+<meta name="keywords" content="Hadoop Streaming">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Hadoop Streaming 使用总结">
+<meta property="og:url" content="https:&#x2F;&#x2F;smarthanwang.github.io&#x2F;2020&#x2F;03&#x2F;26&#x2F;hadoop-streaming&#x2F;index.html">
+<meta property="og:site_name" content="Smarthan&#39;s Notebook">
+<meta property="og:description" content="Hadoop Streaming 是 Hadoop 提供的一个工具， 用户可以使用它来创建和运行一类特殊的 MapReduce 任务， 这些 MR 任务可以使用任何可执行文件或脚本作为 mapper 和 reducer。比如，简单的 word count 任务可使用 Hadoop Streaming 简单写为：">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;smarthanwang.github.io&#x2F;2020&#x2F;03&#x2F;26&#x2F;hadoop-streaming&#x2F;hadoop-streaming.jpg">
+<meta property="og:updated_time" content="2020-03-27T10:14:34.844Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;smarthanwang.github.io&#x2F;2020&#x2F;03&#x2F;26&#x2F;hadoop-streaming&#x2F;hadoop-streaming.jpg">
+  <link rel="canonical" href="https://smarthanwang.github.io/2020/03/26/hadoop-streaming/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true,
+    isPage: false,
+    isArchive: false
+  };
+</script>
+
+  <title>Hadoop Streaming 使用总结 | Smarthan's Notebook</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Smarthan's Notebook</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <h1 class="site-subtitle" itemprop="description">Life is all memory.</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+      
+      
+        
+        
+        <li class="menu-item menu-item-home">
+      
+    
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-tags">
+      
+    
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-categories">
+      
+    
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-archives">
+      
+    
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+      
+    
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger">
+          <i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+    
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="none"
+           placeholder="搜索..." spellcheck="false"
+           type="text" id="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/smarthanwang" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+            
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://smarthanwang.github.io/2020/03/26/hadoop-streaming/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="smarthan">
+      <meta itemprop="description" content="keep coding, keep learning">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Smarthan's Notebook">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            Hadoop Streaming 使用总结
+            
+
+          
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              
+                
+              
+
+              <time title="创建时间：2020-03-26 00:00:00" itemprop="dateCreated datePublished" datetime="2020-03-26T00:00:00+08:00">2020-03-26</time>
+            </span>
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-03-27 18:14:34" itemprop="dateModified" datetime="2020-03-27T18:14:34+08:00">2020-03-27</time>
+              </span>
+            
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Hadoop-MapReduce/" itemprop="url" rel="index">
+                    <span itemprop="name">Hadoop-MapReduce</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+          
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">本文字数：</span>
+              
+              <span>6.3k</span>
+            </span>
+          
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              
+              <span>6 分钟</span>
+            </span>
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Hadoop Streaming 是 Hadoop 提供的一个工具， 用户可以使用它来创建和运行一类特殊的 MapReduce 任务， 这些 MR 任务可以使用任何可执行文件或脚本作为 mapper 和 reducer。</p><p>比如，简单的 word count 任务可使用 Hadoop Streaming 简单写为：</p><a id="more"></a>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \</span><br><span class="line">    -input /tmp/wordcount/input \</span><br><span class="line">    -output /tmp/wordcount/output \</span><br><span class="line">    -mapper /bin/cat \</span><br><span class="line">    -reducer /usr/bin/wc</span><br></pre></td></tr></table></figure>
+
+<h2 id="工作原理"><a href="#工作原理" class="headerlink" title="工作原理"></a>工作原理</h2><p> Hadoop Streaming 会创建一个 MR 任务， 然后将任务提交到集群上执行，同时监控这个任务的整个执行过程。如果 mapper 和 reducer 都是可执行文件，streaming 程序会使用 PipeMapper 和 PipeReducer 来做一个类似代理的 Mapper 和 Reducer，它们负责启动实际的 mapper 和 reducer 可执行文件，然后从 HDFS 读取输入数据，再一行一行写入到可执行文件进程的标准输入，同时读取可执行文件进程处理完数据后输出到标准输出的数据，将其写出到 Mapper 和 Reducer 真正的输出中。</p>
+<p>以一个没有 reduce 阶段的 Streaming 程序为例，其 Mapper 简要运行流程可见下图：</p>
+<p><img src="hadoop-streaming.jpg" alt="Hadoop Streaming Mapper 运行流程"></p>
+<p>PipeMapper 在启动 <code>mapper.sh</code> 后， 不断重复 2-7 （一次 map ）过程，直到所有数据处理完成。</p>
+<p>与 PipeMapper 类似，PipeReducer 会将从 map 端 shuffle 过来数据，一行行的写到 reducer.sh 进程的标准输入，然后收集 reducer.sh 进程的标准输出，最终写出到 hdfs output。</p>
+<p>以上就是是 MapReduce 框架和 streaming mapper/reducer 之间的基本处理流程。所以，用户在编写Streaming 程序的 mapper 和 reducer 时，只需要从不断 stdin 中一行行读取数据，处理然后输出到标准输出中即可。</p>
+<p>同时，用户也可以使用 java 类作为 mapper 或者 reducer 。上面的例子与这里的代码等价：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \</span><br><span class="line">    -input /tmp/wordcount/input \</span><br><span class="line">    -output /tmp/wordcount/output \</span><br><span class="line">    -mapper org.apache.hadoop.mapred.lib.IdentityMapper \</span><br><span class="line">    -reducer /usr/bin/wc</span><br></pre></td></tr></table></figure>
+
+<p>用户也可以设定 <code>stream.non.zero.exit.is.failure</code> <code>true</code> 或 <code>false</code> 来表明 streaming task 的返回值非零时是 Failure 还是 Success。默认情况，streaming task 返回非零时表示失败。</p>
+<h2 id="参数配置"><a href="#参数配置" class="headerlink" title="参数配置"></a>参数配置</h2><p>Hadoop Streaming 支持 Streaming 命令参数配置以及 Hadoop 通用的参数配置。 常规命令行语法如下所示。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop command [genericOptions] [streamingOptions]</span><br></pre></td></tr></table></figure>
+
+<p><strong>注意：确保通用参数放置在 Streaming 的参数配置之前，否则命令将会失败。 具体可查看后续的示例。</strong></p>
+<h3 id="Streaming-参数配置"><a href="#Streaming-参数配置" class="headerlink" title="Streaming 参数配置"></a>Streaming 参数配置</h3><p>Streaming 命令参数配置具体如下表所示：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>必选</th>
+<th>意义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-input   directoryname or filename</td>
+<td>是</td>
+<td>设置输入数据路径，可以是文件或者目录。可通过重复配置，添加多个输入路径</td>
+</tr>
+<tr>
+<td>-output  directoryname</td>
+<td>是</td>
+<td>设置指定输出数据路径，必须是目录。输出路径只能有一个</td>
+</tr>
+<tr>
+<td>-mapper  executable or JavaClassName</td>
+<td>是</td>
+<td>设置可执行的 mapper</td>
+</tr>
+<tr>
+<td>-reducer executable or JavaClassName</td>
+<td>是</td>
+<td>设置可执行的 reducer</td>
+</tr>
+<tr>
+<td>-file filename</td>
+<td>否</td>
+<td>设置需要同步到计算节点的文件，可以使可执行的 mapper，reducer 或 combiner 文件在计算节点本地可用。可以通过重复配置，同步多个文件</td>
+</tr>
+<tr>
+<td>-inputformat JavaClassName</td>
+<td>否</td>
+<td>设置 InputFormat，用来将输入文件读取成 key/value 对，如果未设置默认使用 TextInputFormat</td>
+</tr>
+<tr>
+<td>-outputformat JavaClassName</td>
+<td>否</td>
+<td>设置 OutputFormat，用来将输出的 key/value 对写出到输出文件，如果未设置默认使用 TextOutputFormat</td>
+</tr>
+<tr>
+<td>-partitioner JavaClassName</td>
+<td>否</td>
+<td>设置 Partitioner， 用来根据 key 确定数据应该指派到的 reduce</td>
+</tr>
+<tr>
+<td>-combiner streamingCommand or JavaClassName</td>
+<td>否</td>
+<td>设置 Combiner，用来在 mapper 端归并 mapper 的输出</td>
+</tr>
+<tr>
+<td>-cmdenv name=value</td>
+<td>否</td>
+<td>设置环境变量，可以在 mapper 或者 reducer 运行时获取</td>
+</tr>
+<tr>
+<td>-inputreader</td>
+<td>否</td>
+<td>设置 InputReader 类，用于读取输入数据，取代 InputFormat Class</td>
+</tr>
+<tr>
+<td>-verbose</td>
+<td>否</td>
+<td>设置是否输出日志</td>
+</tr>
+<tr>
+<td>-lazyOutput</td>
+<td>否</td>
+<td>设置是否延迟输出</td>
+</tr>
+<tr>
+<td>-numReduceTasks</td>
+<td>否</td>
+<td>设置 reducer 任务数量</td>
+</tr>
+<tr>
+<td>-mapdebug</td>
+<td>否</td>
+<td>设置 mapper debug 脚本，在 mapper 任务运行失败时执行</td>
+</tr>
+<tr>
+<td>-reducedebug</td>
+<td>否</td>
+<td>设置 reducer debug 脚本， reducer 任务运行失败时执行</td>
+</tr>
+</tbody></table>
+<h3 id="通用参数配置"><a href="#通用参数配置" class="headerlink" title="通用参数配置"></a>通用参数配置</h3><p>Streaming 任务同时支持 Hadoop 通用的参数配置，主要的参数配置有以下几个：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>必选</th>
+<th>意义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-conf configuration_file</td>
+<td>否</td>
+<td>指定配置文件</td>
+</tr>
+<tr>
+<td>-D property=value</td>
+<td>否</td>
+<td>设置参数的值</td>
+</tr>
+<tr>
+<td>-fs host:port or local</td>
+<td>否</td>
+<td>指定一个 namenode</td>
+</tr>
+<tr>
+<td>-files</td>
+<td>否</td>
+<td>指定需要拷贝到集群的文件，多个文件以逗号分隔</td>
+</tr>
+<tr>
+<td>-libjars</td>
+<td>否</td>
+<td>指定需要添加到任务 classpath 的 jar 文件，多个文件以逗号分隔</td>
+</tr>
+<tr>
+<td>-archives</td>
+<td>否</td>
+<td>指定需要解压到计算节点的压缩文件，多个文件以逗号分隔</td>
+</tr>
+</tbody></table>
+<h3 id="参数配置示例"><a href="#参数配置示例" class="headerlink" title="参数配置示例"></a>参数配置示例</h3><p>下面我们通过一些示例来展示具体的 Streaming 任务参数配置。</p>
+<h4 id="设置-Mapper-Reducer"><a href="#设置-Mapper-Reducer" class="headerlink" title="设置 Mapper Reducer"></a>设置 Mapper Reducer</h4><p>使用可执行文件作为 mapper 和 reducer</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \</span><br><span class="line">  -input myInputDir \</span><br><span class="line">  -output myOutputDir \</span><br><span class="line">  -mapper /usr/bin/cat \</span><br><span class="line">  -reducer /usr/bin/wc</span><br></pre></td></tr></table></figure>
+
+<p>使用 Java Class 作为 mapper，指定 InputFormat</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \</span><br><span class="line">  -input myInputDir \</span><br><span class="line">  -output myOutputDir \</span><br><span class="line">  -inputformat org.apache.hadoop.mapred.KeyValueTextInputFormat \</span><br><span class="line">  -mapper org.apache.hadoop.mapred.lib.IdentityMapper \</span><br><span class="line">  -reducer /usr/bin/wc</span><br></pre></td></tr></table></figure>
+
+<h4 id="提交任务时打包文件"><a href="#提交任务时打包文件" class="headerlink" title="提交任务时打包文件"></a>提交任务时打包文件</h4><p>如上文所述，我们可以指定任意的可执行文件作为 mapper 或者 reducer。在提交 Hadoop Streaming 任务时， 可执行的 mapper 或者 reducer 执行文件并不必已经存在 Hadoop 集群的任意一台机器上。如果不存在，我们只需要在提交任务时的时候使用 <code>-file</code> 参数指定需要的文件，告诉集群在提交任务时将这些文件打包，这样Hadoop 会自动将这些文件打包上传到 Hdfs，并同步到每个计算节点。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \</span><br><span class="line">  -input myInputDir \</span><br><span class="line">  -output myOutputDir \</span><br><span class="line">  -mapper wordcount.py \</span><br><span class="line">  -reducer /usr/bin/wc \</span><br><span class="line">  -file wordcount.py</span><br></pre></td></tr></table></figure>
+<p>同时，你也可以指定一些依赖文件，打包上传到集群上,提供给 mapper 或者 reducer 任务使用 </p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \</span><br><span class="line">  -input myInputDir \</span><br><span class="line">  -output myOutputDir \</span><br><span class="line">  -mapper wordcount.py \</span><br><span class="line">  -reducer /usr/bin/wc \</span><br><span class="line">  -file wordcount.py \</span><br><span class="line">  -file dictionary.txt</span><br></pre></td></tr></table></figure>
+
+<h4 id="指定任务的其他插件"><a href="#指定任务的其他插件" class="headerlink" title="指定任务的其他插件"></a>指定任务的其他插件</h4><p>跟普通的 MR 任务一样，我们可以指定任务运行时的一些插件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">-inputformat JavaClassName</span><br><span class="line">-outputformat JavaClassName</span><br><span class="line">-partitioner JavaClassName</span><br><span class="line">-combiner streamingCommand or JavaClassName</span><br></pre></td></tr></table></figure>
+
+<h4 id="设置环境变量"><a href="#设置环境变量" class="headerlink" title="设置环境变量"></a>设置环境变量</h4><p>我们也可以通过参数设置任务运行时的环境变量，并且可以在 mapper 或者 reducer 运行时获取环境变量的值。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \</span><br><span class="line">  -input myInputDir \</span><br><span class="line">  -output myOutputDir \</span><br><span class="line">  -mapper wordcount.py \</span><br><span class="line">  -reducer /usr/bin/wc \</span><br><span class="line">  -file wordcount.py \</span><br><span class="line">  -cmdenv EXAMPLE_DIR=/home/example/dictionaries/ \</span><br><span class="line">  -cmdenv LOG_LEVEL=debug</span><br></pre></td></tr></table></figure>
+
+<h4 id="设置-reducer-数量"><a href="#设置-reducer-数量" class="headerlink" title="设置 reducer 数量"></a>设置 reducer 数量</h4><p>通常，我们需要为任务设置合适的 reducer 数量，默认的 reducer 数量是 1，具体的 reducer 数量应当根据业务需求以及可使用资源等因素来确定。<br>reducer 数量可以使用 Streaming 配置 <code>-numReduceTasks 10</code> 或者通用参数 <code>-D mapreduce.job.reduces=10</code> 来设置。如下，我们将任务的 reducer 数量设为 10。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \</span><br><span class="line">  -D mapreduce.job.reduces=10</span><br><span class="line">  -input myInputDir \</span><br><span class="line">  -output myOutputDir \</span><br><span class="line">  -mapper /usr/bin/cat \</span><br><span class="line">  -reducer /usr/bin/wc</span><br></pre></td></tr></table></figure>
+
+<p>对于 map-only 的任务，在 map 结束后直接输出结果即可，不需要进行 reduce，这时我们需要将 reducer  数量设为 0。设置  <code>-D mapreduce.job.reduces=0</code> 或者 <code>-reducer=NONE</code> 即可。</p>
+<h4 id="依赖大文件或者归档文件"><a href="#依赖大文件或者归档文件" class="headerlink" title="依赖大文件或者归档文件"></a>依赖大文件或者归档文件</h4><p>很多 Streaming 任务在运行时需要依赖某些特定的文件或者环境，比如某些分词任务依赖字典文件，或某个python 实现的机器学习任务依赖指定的 module 。此时，我们就需要将依赖的文件或者归档上传到 HDFS 上， 并使用 <code>-files</code> 和 <code>-archives</code> 选项指定已上传的依赖文件或者归档的 HDFS 路径，任务运行时将会将指定的依赖文件和归档分发到各个计算节点上，任务运行时即可依赖这些文件进行相应的操作。  </p>
+<p><strong>注意：<code>-files</code> 和 <code>-archives</code> 选项都是通用选项,需要放在 Streaming 命令配置前，否则会导致任务启动失败</strong></p>
+<p><code>-files</code> 选项指定的依赖文件会在任务启动之前分发到当前计算节点上。依赖文件分完成后，会在任务的工作目录里建个软链指向它。<br>如下示例，Hadoop 会在任务的当前工作目录中自动创建名为 dict.txt 的符号链接，指向 dict.txt 的实际复制到的本地路径。任务直接通过软链引用文件即可。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-files hdfs://host:port/tmp/cache/dict.txt</span><br></pre></td></tr></table></figure>
+<p>用户也可以自己指定符号链接的名称，如下示例，将建立名为 dict 的软链。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-files hdfs://host:port/tmp/cache/dict.txt#dict</span><br></pre></td></tr></table></figure>
+<p>对于多个依赖文件，可以用逗号分隔</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-files hdfs://host:port/tmp/cache/dict.txt,hdfs://host:port/tmp/cache/test.txt</span><br></pre></td></tr></table></figure>
+
+<p><code>-archives</code> 选项指定的归档文件会在任务启动之前分发到当前计算节点上，对于使用某些压缩的归档文件（tar 或 jar）分发到计算节点上后， Hadoop 会自动将其解压到一个目录里，并在任务的工作目录里建个软链指向这个目录。<br>如下示例，Hadoop 会在任务的当前工作目录中自动创建名为 dict.tar.gz 的符号链接，指向 dict.tar.gz 解压到的目录。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-archives hdfs://host:port/tmp/cache/dict.tar.gz</span><br></pre></td></tr></table></figure>
+<p>用户也可以自己指定符号链接的名称，如下示例，将建立名为 mydict 的软链。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-archives hdfs://host:port/tmp/cache/dict.tar.gz#mydict</span><br></pre></td></tr></table></figure>
+
+<p>指定多个归档依赖文件，可以用逗号分隔。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-archives hdfs://host:port/tmp/cache/dict.tar.gz,hdfs://host:port/tmp/cache/test.tar.gz</span><br></pre></td></tr></table></figure>
+
+<p>对于任务依赖包含许多文件的目录时，如 python 依赖的某些集群上不存在的第三方 module， 我们可以先将整个目录归档压缩后上传到 HDFS 上，并使用 <code>-archives</code> 指定上传后的路径，即可在python 实现的 mapper 或 reducer 运行时引用 module 进行相关的计算。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">tar -czvf test_moudle.tar.gz -C test_moudle/ .</span><br><span class="line">hadoop fs -put test_moudle.tar.gz /tmp/cache/test_moudle.tar.gz</span><br><span class="line"># 打包上传完成后，在依赖未更新时，后续任务启动时不要重新打包上传归档文件</span><br><span class="line"># 在 mapper.py 或 reducer.py 直接用 ./tmodule 路径读取或者引用即可</span><br><span class="line"></span><br><span class="line">hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \</span><br><span class="line">  -archives hdfs://host:port/tmp/cache/test_moudle.tar.gz#tmodule \</span><br><span class="line">  -D mapreduce.job.reduces=1 \</span><br><span class="line">  -D mapreduce.job.name=&quot;TestArchives&quot; \</span><br><span class="line">  -input myInputDir \</span><br><span class="line">  -output myOutputDir \</span><br><span class="line">  -mapper &apos;python mapper.py&apos; \</span><br><span class="line">  -reducer &apos;python reducer.py&apos;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Streaming-任务本地测试"><a href="#Streaming-任务本地测试" class="headerlink" title="Streaming 任务本地测试"></a>Streaming 任务本地测试</h3><p>因为在集群上对失败任务进行 debug 比较麻烦一些，所以在提交任务之前，建议先在本地对任务进行简单的测试，测试通过后再提交到集群。  </p>
+<p>简单测试命令如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cat inputfile | sh mapper.sh | sort |sh reducer.sh &gt; output</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+      
+
+        
+      
+
+      <footer class="post-footer">
+          
+            
+          
+          <div class="post-tags">
+            
+              <a href="/tags/Hadoop-Streaming/" rel="tag"># Hadoop Streaming</a>
+            
+          </div>
+        
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-next post-nav-item">
+              
+                <a href="/2020/01/20/yarn-shared-cache/" rel="next" title="Yarn Shared Cache 功能简介">
+                  <i class="fa fa-chevron-left"></i> Yarn Shared Cache 功能简介
+                </a>
+              
+            </div>
+
+            <span class="post-nav-divider"></span>
+
+            <div class="post-nav-prev post-nav-item">
+              
+            </div>
+          </div>
+        
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+        
+        
+        
+        
+      
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#工作原理"><span class="nav-number">1.</span> <span class="nav-text">工作原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参数配置"><span class="nav-number">2.</span> <span class="nav-text">参数配置</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Streaming-参数配置"><span class="nav-number">2.1.</span> <span class="nav-text">Streaming 参数配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#通用参数配置"><span class="nav-number">2.2.</span> <span class="nav-text">通用参数配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#参数配置示例"><span class="nav-number">2.3.</span> <span class="nav-text">参数配置示例</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#设置-Mapper-Reducer"><span class="nav-number">2.3.1.</span> <span class="nav-text">设置 Mapper Reducer</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#提交任务时打包文件"><span class="nav-number">2.3.2.</span> <span class="nav-text">提交任务时打包文件</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#指定任务的其他插件"><span class="nav-number">2.3.3.</span> <span class="nav-text">指定任务的其他插件</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#设置环境变量"><span class="nav-number">2.3.4.</span> <span class="nav-text">设置环境变量</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#设置-reducer-数量"><span class="nav-number">2.3.5.</span> <span class="nav-text">设置 reducer 数量</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#依赖大文件或者归档文件"><span class="nav-number">2.3.6.</span> <span class="nav-text">依赖大文件或者归档文件</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Streaming-任务本地测试"><span class="nav-number">2.4.</span> <span class="nav-text">Streaming 任务本地测试</span></a></li></ol></li></ol></div>
+        
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">smarthan</p>
+  <div class="site-description" itemprop="description">keep coding, keep learning</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">8</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+          
+            <a href="/categories/">
+          
+        
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+          
+            <a href="/tags/">
+          
+        
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">标签</span>
+        </a>
+      </div>
+    
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="https://github.com/smarthanwang" title="GitHub &amp;rarr; https:&#x2F;&#x2F;github.com&#x2F;smarthanwang" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="mailto:smarthanwang@gmail.com" title="E-Mail &amp;rarr; mailto:smarthanwang@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+    
+  </div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">smarthan</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    
+    <span title="站点总字数">35k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    
+    <span title="站点阅读时长">31 分钟</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">
+      
+    主题 – <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.4.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+  
+    <span class="post-meta-divider">|</span>
+  
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js?v=3.1.0"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/pangu@4/dist/browser/pangu.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+<script src="/js/utils.js?v=7.4.2"></script><script src="/js/motion.js?v=7.4.2"></script>
+<script src="/js/schemes/pisces.js?v=7.4.2"></script>
+<script src="/js/next-boot.js?v=7.4.2"></script>
+
+
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+
+  <script src="/js/local-search.js?v=7.4.2"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

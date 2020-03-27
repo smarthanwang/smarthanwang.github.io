@@ -58,14 +58,14 @@
 </script>
 
   <meta name="description" content="Yarn Shared Cache （Yarn 共享缓存服务）是社区 Hadoop 2.9 版本之后上新增的功能，参见YARN-1492，它的目的是提供了一种安全且可扩展的方式向 HDFS 上传和管理应用程序依赖资源，降低 Yarn application 因为依赖资源的上传以及本地化带来的时间消耗。">
-<meta name="keywords" content="Yarn,Yarn Shared Cache,依">
+<meta name="keywords" content="Yarn,Shared Cache">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Yarn Shared Cache 功能简介">
 <meta property="og:url" content="https:&#x2F;&#x2F;smarthanwang.github.io&#x2F;2020&#x2F;01&#x2F;20&#x2F;yarn-shared-cache&#x2F;index.html">
 <meta property="og:site_name" content="Smarthan&#39;s Notebook">
 <meta property="og:description" content="Yarn Shared Cache （Yarn 共享缓存服务）是社区 Hadoop 2.9 版本之后上新增的功能，参见YARN-1492，它的目的是提供了一种安全且可扩展的方式向 HDFS 上传和管理应用程序依赖资源，降低 Yarn application 因为依赖资源的上传以及本地化带来的时间消耗。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-25T10:58:02.379Z">
+<meta property="og:updated_time" content="2020-03-27T10:35:46.289Z">
 <meta name="twitter:card" content="summary">
   <link rel="canonical" href="https://smarthanwang.github.io/2020/01/20/yarn-shared-cache/">
 
@@ -294,7 +294,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020-03-25 18:58:02" itemprop="dateModified" datetime="2020-03-25T18:58:02+08:00">2020-03-25</time>
+                <time title="修改时间：2020-03-27 18:35:46" itemprop="dateModified" datetime="2020-03-27T18:35:46+08:00">2020-03-27</time>
               </span>
             
           
@@ -333,7 +333,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>5.8k</span>
+              <span>4.8k</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -343,7 +343,7 @@
               
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
               
-              <span>5 分钟</span>
+              <span>4 分钟</span>
             </span>
           
 
@@ -388,124 +388,124 @@
 <thead>
 <tr>
 <th>Name</th>
-<th>Description</th>
 <th>Default value</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody><tr>
 <td>yarn.sharedcache.enabled</td>
-<td>Whether the shared cache is enabled</td>
 <td>false</td>
+<td>是否开启 shared cache</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.root-dir</td>
-<td>The root directory for the shared cache</td>
 <td>/sharedcache</td>
+<td>shared cache 根目录</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.nested-level</td>
-<td>The level of nested directories before getting to the checksum directories. It must be non-negative.</td>
 <td>3</td>
+<td>非负整数，根据 checksum 子目录嵌套层数.</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.store.class</td>
-<td>The implementation to be used for the SCM store</td>
 <td>org.apache.hadoop.yarn.server.sharedcachemanager.store.InMemorySCMStore</td>
+<td>SCM store 具体实现</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.app-checker.class</td>
-<td>The implementation to be used for the SCM app-checker</td>
 <td>org.apache.hadoop.yarn.server.sharedcachemanager.RemoteAppChecker</td>
+<td>SCM app-checker</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.store.in-memory.staleness-period-mins</td>
-<td>A resource in the in-memory store is considered stale if the time since the last reference exceeds the staleness period. This value is specified in minutes.</td>
 <td>10080</td>
+<td>资源过期时间，如果资源上次被使用时间到现在超过过期时间则被认为是过期。单位是分钟</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.store.in-memory.initial-delay-mins</td>
-<td>Initial delay before the in-memory store runs its first check to remove dead initial applications. Specified in minutes.</td>
 <td>10</td>
+<td>scm store 初始化延迟时间，单位分钟.</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.store.in-memory.check-period-mins</td>
-<td>The frequency at which the in-memory store checks to remove dead initial applications. Specified in minutes.</td>
 <td>720</td>
+<td>scm store application 检测周期，单位分钟.</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.admin.thread-count</td>
-<td>The number of threads used to handle SCM admin interface (1 by default)</td>
 <td>1</td>
+<td>SCM admin 接口处理线程数</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.cleaner.period-mins</td>
-<td>The frequency at which a cleaner task runs. Specified in minutes.</td>
 <td>1440</td>
+<td>资源清理任务运行周期，单位分钟.</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.cleaner.initial-delay-mins</td>
-<td>Initial delay before the first cleaner task is scheduled. Specified in minutes.</td>
 <td>10</td>
+<td>cleaner 任务初始化延迟时间，单位分钟.</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.cleaner.resource-sleep-ms</td>
-<td>The time to sleep between processing each shared cache resource. Specified in milliseconds.</td>
 <td>0</td>
+<td>清理各个 resource 时的间隔时间. 单位 ms.</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.uploader.server.thread-count</td>
-<td>The number of threads used to handle shared cache manager requests from the node manager (50 by default)</td>
 <td>50</td>
+<td>SCM 处理 NM upload 请求的线程数</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.client-server.address</td>
-<td>The address of the client interface in the SCM (shared cache manager)</td>
 <td>0.0.0.0:8045</td>
+<td>The address of the client interface in the SCM</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.uploader.server.address</td>
-<td>The address of the node manager interface in the SCM (shared cache manager)</td>
 <td>0.0.0.0:8046</td>
+<td>The address of the node manager interface in the SCM</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.admin.address</td>
-<td>The address of the admin interface in the SCM (shared cache manager)</td>
 <td>0.0.0.0:8047</td>
+<td>The address of the admin interface in the SCM</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.webapp.address</td>
-<td>The address of the web application in the SCM (shared cache manager)</td>
 <td>0.0.0.0:8788</td>
+<td>The address of the web application in the SCM</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.client-server.thread-count</td>
-<td>The number of threads used to handle shared cache manager requests from clients (50 by default)</td>
 <td>50</td>
+<td>SCM 处理客户端请求的线程数</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.checksum.algo.impl</td>
-<td>The algorithm used to compute checksums of files (SHA-256 by default)</td>
 <td>org.apache.hadoop.yarn.sharedcache.ChecksumSHA256Impl</td>
+<td>计算文件 checksum 值算法</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.nm.uploader.replication.factor</td>
-<td>The replication factor for the node manager uploader for the shared cache (10 by default)</td>
 <td>10</td>
+<td>resource 上传到 hdfs 后的备份数</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.nm.uploader.thread-count</td>
-<td>The number of threads used to upload files from a node manager instance (20 by default)</td>
 <td>20</td>
+<td>NM 上传资源文件线程数</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.keytab</td>
-<td>keytab for SCM</td>
 <td>required for security cluster</td>
+<td>keytab for SCM</td>
 </tr>
 <tr>
 <td>yarn.sharedcache.principal</td>
-<td>principal for SCM</td>
 <td>required for security cluster</td>
+<td>principal for SCM</td>
 </tr>
 </tbody></table>
 <h2 id="MR-支持-YARN-Shared-Cache"><a href="#MR-支持-YARN-Shared-Cache" class="headerlink" title="MR 支持 YARN Shared Cache"></a>MR 支持 YARN Shared Cache</h2><p>社区对 MR 任务进行了 YARN Shared Cache 功能支持，通过客户端配置来开启 MR 任务资源直接使用 Yarn Shared Cache进行托管。MR 客户端会优先使用 YARN Shared Cache 托管依赖资源，如果 SCM 服务不可用时，就会回退到原来的上传依赖资源到任务的提交目录的模式。 </p>
@@ -564,9 +564,7 @@
             
               <a href="/tags/Yarn/" rel="tag"># Yarn</a>
             
-              <a href="/tags/Yarn-Shared-Cache/" rel="tag"># Yarn Shared Cache</a>
-            
-              <a href="/tags/%E4%BE%9D/" rel="tag"># 依</a>
+              <a href="/tags/Shared-Cache/" rel="tag"># Shared Cache</a>
             
           </div>
         
@@ -585,6 +583,10 @@
             <span class="post-nav-divider"></span>
 
             <div class="post-nav-prev post-nav-item">
+              
+                <a href="/2020/03/26/hadoop-streaming/" rel="prev" title="Hadoop Streaming 使用总结">
+                  Hadoop Streaming 使用总结 <i class="fa fa-chevron-right"></i>
+                </a>
               
             </div>
           </div>
@@ -646,7 +648,7 @@
         
           <a href="/archives/">
         
-          <span class="site-state-item-count">7</span>
+          <span class="site-state-item-count">8</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -738,14 +740,14 @@
     </span>
       <span class="post-meta-item-text">站点总字数：</span>
     
-    <span title="站点总字数">29k</span>
+    <span title="站点总字数">35k</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
       <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
     
-    <span title="站点阅读时长">27 分钟</span>
+    <span title="站点阅读时长">31 分钟</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
   </div>
