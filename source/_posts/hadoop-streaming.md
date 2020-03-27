@@ -23,18 +23,19 @@ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \
 
 ## 工作原理
 
-在上面的 word count 示例里，mapper 和 reducer 都是可执行文件，它们先从标准输入读取数据（一行一行读）， 然后把计算结果写入标准输出。 Hadoop Streaming 会创建一个 MR 任务， 然后将任务提交到集群上执行，同时监控这个任务的整个执行过程。
+ Hadoop Streaming 会创建一个 MR 任务， 然后将任务提交到集群上执行，同时监控这个任务的整个执行过程。如果 mapper 和 reducer 都是可执行文件，streaming 程序会使用 PipeMapper 和 PipeReducer 来做一个类似代理的 Mapper 和 Reducer，它们负责启动实际的 mapper 和 reducer 可执行文件，然后从 HDFS 读取输入数据，再一行一行写入到可执行文件进程的标准输入，同时读取可执行文件进程处理完数据后输出到标准输出的数据，将其写出到 Mapper 和 Reducer 真正的输出中。
 
-Hadoop Streaming 中，如果使用可执行文件作为 mapper，则每一个 mapper task 会在启动时，会把这个可执行文件作为一个单独的进程启动。 mapper task 运行时，它会按行读取输入文件，并把每一行提供给可执行文件进程的标准输入。 同时，mapper task 收集可执行文件进程标准输出的内容，并把收集的每一行内容转化成 key/value 对，作为 mapper task 的输出。 默认情况下，一行中第一个 tab 之前的部分作为 key，之后的（不包括 tab ）作为 value。 如果没有 tab，整行都会作为 key 值，value 值为 null 。
 
-简要流程可见下图：
+以一个没有 reduce 阶段的 Streaming 程序为例，其 Mapper 简要运行流程可见下图：
 
 ![Hadoop Streaming Mapper 运行流程](hadoop-streaming/hadoop-streaming.jpg)
 
 
-与 mapper 相同，如果使用可执行文件被作为 reducer，每个 reducer task 会把这个可执行文件作为一个单独的进程启动。 Reducer 运行时，会把输入切分成行并把每一行提供给可执行文件进程的标准输入。 同时，reducer task 收集可执行文件进程标准输出的内容，并把每一行内容转化成key/value 对，作为 reducer task 的输出。 默认情况下，一行中第一个 tab 之前的部分作为 key，之后的（不包括 tab ）作为 value 。
+PipeMapper 在启动 `mapper.sh` 后， 不断重复 2-7 （一次 map ）过程，直到所有数据处理完成。
 
-这是 MapReduce 框架和 streaming mapper/reducer 之间的基本处理流程。
+与 PipeMapper 类似，PipeReducer 会将从 map 端 shuffle 过来数据，一行行的写到 reducer.sh 进程的标准输入，然后收集 reducer.sh 进程的标准输出，最终写出到 hdfs output。
+
+以上就是是 MapReduce 框架和 streaming mapper/reducer 之间的基本处理流程。所以，用户在编写Streaming 程序的 mapper 和 reducer 时，只需要从不断 stdin 中一行行读取数据，处理然后输出到标准输出中即可。
 
 同时，用户也可以使用 java 类作为 mapper 或者 reducer 。上面的例子与这里的代码等价：
 ```bash
@@ -45,7 +46,7 @@ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar \
     -reducer /usr/bin/wc
 ```
 
-用户可以设定 `stream.non.zero.exit.is.failure` `true` 或 `false` 来表明 streaming task 的返回值非零时是 Failure 还是 Success。默认情况，streaming task 返回非零时表示失败。
+用户也可以设定 `stream.non.zero.exit.is.failure` `true` 或 `false` 来表明 streaming task 的返回值非零时是 Failure 还是 Success。默认情况，streaming task 返回非零时表示失败。
 
 
 ## 参数配置

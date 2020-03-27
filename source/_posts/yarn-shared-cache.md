@@ -84,31 +84,31 @@ Yarn Shared Cache 主要由4个部分组成:
 
 Yarn Shared Cache 所需要的所有配置大致如下：
 
-Name        |        Description        | 	Default value
+Name        |        Default value        | 	Description
 ---|---|---
-yarn.sharedcache.enabled	|Whether the shared cache is enabled	|false
-yarn.sharedcache.root-dir	|The root directory for the shared cache	|/sharedcache
-yarn.sharedcache.nested-level	|The level of nested directories before getting to the checksum directories. It must be non-negative.	|3
-yarn.sharedcache.store.class	|The implementation to be used for the SCM store	|org.apache.hadoop.yarn.server.sharedcachemanager.store.InMemorySCMStore
-yarn.sharedcache.app-checker.class	|The implementation to be used for the SCM app-checker	|org.apache.hadoop.yarn.server.sharedcachemanager.RemoteAppChecker
-yarn.sharedcache.store.in-memory.staleness-period-mins	|A resource in the in-memory store is considered stale if the time since the last reference exceeds the staleness period. This value is specified in minutes.	|10080
-yarn.sharedcache.store.in-memory.initial-delay-mins	|Initial delay before the in-memory store runs its first check to remove dead initial applications. Specified in minutes.	|10
-yarn.sharedcache.store.in-memory.check-period-mins	|The frequency at which the in-memory store checks to remove dead initial applications. Specified in minutes.	|720
-yarn.sharedcache.admin.thread-count|	The number of threads used to handle SCM admin interface (1 by default)	|1
-yarn.sharedcache.cleaner.period-mins|	The frequency at which a cleaner task runs. Specified in minutes.|	1440
-yarn.sharedcache.cleaner.initial-delay-mins|	Initial delay before the first cleaner task is scheduled. Specified in minutes.	|10
-yarn.sharedcache.cleaner.resource-sleep-ms	|The time to sleep between processing each shared cache resource. Specified in milliseconds.	|0
-yarn.sharedcache.uploader.server.thread-count	|The number of threads used to handle shared cache manager requests from the node manager (50 by default)	|50
-yarn.sharedcache.client-server.address	|The address of the client interface in the SCM (shared cache manager)	|0.0.0.0:8045
-yarn.sharedcache.uploader.server.address	|The address of the node manager interface in the SCM (shared cache manager)	|0.0.0.0:8046
-yarn.sharedcache.admin.address	|The address of the admin interface in the SCM (shared cache manager)	|0.0.0.0:8047
-yarn.sharedcache.webapp.address|	The address of the web application in the SCM (shared cache manager)	|0.0.0.0:8788
-yarn.sharedcache.client-server.thread-count	|The number of threads used to handle shared cache manager requests from clients (50 by default)	|50
-yarn.sharedcache.checksum.algo.impl	|The algorithm used to compute checksums of files (SHA-256 by default)	|org.apache.hadoop.yarn.sharedcache.ChecksumSHA256Impl
-yarn.sharedcache.nm.uploader.replication.factor	|The replication factor for the node manager uploader for the shared cache (10 by default)	|10
-yarn.sharedcache.nm.uploader.thread-count	|The number of threads used to upload files from a node manager instance (20 by default)	|20
-yarn.sharedcache.keytab    |	keytab for SCM	    | required for security cluster
-yarn.sharedcache.principal |	principal for SCM	| required for security cluster
+yarn.sharedcache.enabled	|false 	|Whether the shared cache is enabled
+yarn.sharedcache.root-dir	|/sharedcache |The root directory for the shared cache	
+yarn.sharedcache.nested-level	|3 	|The level of nested directories before getting to the checksum directories. It must be non-negative.
+yarn.sharedcache.store.class	|org.apache.hadoop.yarn.server.sharedcachemanager.store.InMemorySCMStore |The implementation to be used for the SCM store	
+yarn.sharedcache.app-checker.class	|org.apache.hadoop.yarn.server.sharedcachemanager.RemoteAppChecker |The implementation to be used for the SCM app-checker	
+yarn.sharedcache.store.in-memory.staleness-period-mins	|10080 |A resource in the in-memory store is considered stale if the time since the last reference exceeds the staleness period. This value is specified in minutes.	
+yarn.sharedcache.store.in-memory.initial-delay-mins		|10 |Initial delay before the in-memory store runs its first check to remove dead initial applications. Specified in minutes.
+yarn.sharedcache.store.in-memory.check-period-mins	|720 	|The frequency at which the in-memory store checks to remove dead initial applications. Specified in minutes.
+yarn.sharedcache.admin.thread-count |1 |	The number of threads used to handle SCM admin interface (1 by default)	
+yarn.sharedcache.cleaner.period-mins|	1440 |	The frequency at which a cleaner task runs. Specified in minutes.
+yarn.sharedcache.cleaner.initial-delay-mins	|10 |	Initial delay before the first cleaner task is scheduled. Specified in minutes.
+yarn.sharedcache.cleaner.resource-sleep-ms		|0 |The time to sleep between processing each shared cache resource. Specified in milliseconds.
+yarn.sharedcache.uploader.server.thread-count	|50 |The number of threads used to handle shared cache manager requests from the node manager (50 by default)	
+yarn.sharedcache.client-server.address	|0.0.0.0:8045 |The address of the client interface in the SCM (shared cache manager)	
+yarn.sharedcache.uploader.server.address	|0.0.0.0:8046 |The address of the node manager interface in the SCM (shared cache manager)	
+yarn.sharedcache.admin.address|0.0.0.0:8047 	|The address of the admin interface in the SCM (shared cache manager)	
+yarn.sharedcache.webapp.address	|0.0.0.0:8788 |	The address of the web application in the SCM (shared cache manager)
+yarn.sharedcache.client-server.thread-count		|50 |The number of threads used to handle shared cache manager requests from clients (50 by default)
+yarn.sharedcache.checksum.algo.impl	|org.apache.hadoop.yarn.sharedcache.ChecksumSHA256Impl |The algorithm used to compute checksums of files (SHA-256 by default)
+yarn.sharedcache.nm.uploader.replication.factor		|10 |The replication factor for the node manager uploader for the shared cache (10 by default)
+yarn.sharedcache.nm.uploader.thread-count		|20 |The number of threads used to upload files from a node manager instance 
+yarn.sharedcache.keytab     | required for security cluster |	keytab for SCM	   
+yarn.sharedcache.principal 	| required for security cluster |	principal for SCM
  
 
 ## MR 支持 YARN Shared Cache
